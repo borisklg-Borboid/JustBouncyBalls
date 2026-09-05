@@ -1790,19 +1790,24 @@
         }
 
         function playFinaleBounceCascade(context, now) {
-            const bounceCount = isMobileOrTablet() ? 26 : 42;
+            const targetDuration = 4;
+            const bounceCount = isMobileOrTablet() ? 38 : 58;
             let offset = 0;
 
             for (let i = 0; i < bounceCount; i++) {
                 const progress = i / Math.max(1, bounceCount - 1);
-                const nextGap = 0.012 + Math.pow(progress, 2.15) * 0.085;
-                const pitch = 520 - progress * 330 + (Math.random() - 0.5) * 60;
-                const duration = 0.026 + progress * 0.05;
-                const volume = (0.08 + (1 - progress) * 0.05) * (isMobileOrTablet() ? 0.72 : 1);
+                const eased = Math.pow(progress, 1.55);
+                const pitch = 620 - eased * 500 + (Math.random() - 0.5) * (65 - progress * 30);
+                const duration = 0.032 + progress * 0.09;
+                const volume = (0.09 + (1 - progress) * 0.055) * (isMobileOrTablet() ? 0.72 : 1);
                 const panValue = Math.max(-0.85, Math.min(0.85, (Math.random() - 0.5) * (1.1 - progress * 0.45)));
 
                 scheduleFinaleBounce(context, now + offset, pitch, duration, volume, panValue);
-                offset += nextGap;
+
+                if (i < bounceCount - 1) {
+                    const nextProgress = (i + 1) / Math.max(1, bounceCount - 1);
+                    offset = Math.pow(nextProgress, 2.35) * targetDuration;
+                }
             }
         }
 
