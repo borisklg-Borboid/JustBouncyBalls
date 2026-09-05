@@ -871,6 +871,7 @@
         let swooshNoiseBuffer = null;
         let finaleSwoosh = null;
         let finaleSwooshFinished = false;
+        let finaleBlastTriggered = false;
         let musicStarted = false;
         let musicRestoreFrame = null;
         let lastLetterPopTime = 0;
@@ -880,6 +881,7 @@
         const MAX_BALLS = 2000;
         const MOBILE_MAX_BALLS = 1000;
         const SWOOSH_START_BALLS = 100;
+        const FINALE_BLAST_PROGRESS = 0.75;
         const SUPABASE_URL = 'https://jcjnowvvfzcddfjkprbv.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_1ezvUiSnLB-_tbi3qsYsnQ_gsE05-9F';
         const FINALE_SETTLE_MS = 1000;
@@ -1318,6 +1320,7 @@
                 gameEnded = false;
                 finaleStartTime = null;
                 finaleSwooshFinished = false;
+                finaleBlastTriggered = false;
                 stopFinaleSwoosh();
                 hideWinner();
                 updateTitleColor();
@@ -1362,8 +1365,11 @@
             gameEnded = false;
             finaleStartTime = null;
             finaleSwooshFinished = false;
+            finaleBlastTriggered = false;
             stopFinaleSwoosh();
             stopTieBattle();
+            if (finaleBlastElement) finaleBlastElement.classList.remove('active');
+            document.body.classList.remove('finale-shake');
             
             // Clear any running intervals
             clearInterval(window.addBallsInterval);
@@ -1640,6 +1646,15 @@
             return Math.max(0, Math.min(1, (balls.length - SWOOSH_START_BALLS) / (maxBalls - SWOOSH_START_BALLS)));
         }
 
+        function checkFinaleBlastCue() {
+            if (!gameStarted || gameEnded || finaleBlastTriggered) return;
+
+            if (balls.length >= Math.floor(getMaxBalls() * FINALE_BLAST_PROGRESS)) {
+                finaleBlastTriggered = true;
+                triggerFinaleBlast();
+            }
+        }
+
         function updateFinaleSwoosh() {
             if (!gameStarted || gameEnded || finaleSwooshFinished || balls.length < SWOOSH_START_BALLS) return;
 
@@ -1737,10 +1752,9 @@
                 finaleSwoosh = null;
             }
 
-            playFinaleWhip(context, now);
-            triggerFinaleBlast();
+            playFinaleBounceCascade(context, now);
             blastFinaleBalls();
-            restoreBackgroundMusic(1100);
+            restoreBackgroundMusic(450);
         }
 
         function triggerFinaleBlast() {
@@ -1775,38 +1789,67 @@
             });
         }
 
-        function playFinaleWhip(context, now) {
-            const whip = context.createOscillator();
-            const whipGain = context.createGain();
+        function playFinaleBounceCascade(context, now) {
+            const bounceCount = isMobileOrTablet() ? 26 : 42;
+            let offset = 0;
+
+            for (let i = 0; i < bounceCount; i++) {
+                const progress = i / Math.max(1, bounceCount - 1);
+                const nextGap = 0.012 + Math.pow(progress, 2.15) * 0.085;
+                const pitch = 520 - progress * 330 + (Math.random() - 0.5) * 60;
+                const duration = 0.026 + progress * 0.05;
+                const volume = (0.08 + (1 - progress) * 0.05) * (isMobileOrTablet() ? 0.72 : 1);
+                const panValue = Math.max(-0.85, Math.min(0.85, (Math.random() - 0.5) * (1.1 - progress * 0.45)));
+
+                scheduleFinaleBounce(context, now + offset, pitch, duration, volume, panValue);
+                offset += nextGap;
+            }
+        }
+
+        function scheduleFinaleBounce(context, startTime, pitch, duration, volume, panValue) {
             const noise = context.createBufferSource();
             const noiseFilter = context.createBiquadFilter();
             const noiseGain = context.createGain();
+            const tone = context.createOscillator();
+            const toneGain = context.createGain();
+            const master = context.createGain();
+            const panner = context.createStereoPanner ? context.createStereoPanner() : null;
 
-            whip.type = 'triangle';
-            whip.frequency.setValueAtTime(1900, now);
-            whip.frequency.exponentialRampToValueAtTime(140, now + 0.19);
-            whipGain.gain.setValueAtTime(0.252, now);
-            whipGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
-
-            noise.buffer = swooshNoiseBuffer;
-            noise.playbackRate.value = 3.9;
+            noise.buffer = popNoiseBuffer || swooshNoiseBuffer;
+            noise.playbackRate.value = 0.85 + Math.random() * 0.9;
             noiseFilter.type = 'bandpass';
-            noiseFilter.frequency.setValueAtTime(8200, now);
-            noiseFilter.frequency.exponentialRampToValueAtTime(420, now + 0.22);
-            noiseFilter.Q.value = 6.4;
-            noiseGain.gain.setValueAtTime(0.306, now);
-            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+            noiseFilter.frequency.setValueAtTime(Math.max(180, pitch * 3.1), startTime);
+            noiseFilter.frequency.exponentialRampToValueAtTime(Math.max(120, pitch * 1.1), startTime + duration);
+            noiseFilter.Q.value = 7 + Math.random() * 4;
 
-            whip.connect(whipGain);
-            whipGain.connect(context.destination);
+            tone.type = Math.random() < 0.5 ? 'triangle' : 'sine';
+            tone.frequency.setValueAtTime(Math.max(80, pitch), startTime);
+            tone.frequency.exponentialRampToValueAtTime(Math.max(55, pitch * 0.52), startTime + duration);
+
+            noiseGain.gain.setValueAtTime(volume, startTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+            toneGain.gain.setValueAtTime(volume * 0.34, startTime);
+            toneGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration * 1.2);
+            master.gain.value = 0.82;
+
             noise.connect(noiseFilter);
             noiseFilter.connect(noiseGain);
-            noiseGain.connect(context.destination);
+            tone.connect(toneGain);
+            noiseGain.connect(master);
+            toneGain.connect(master);
 
-            whip.start(now);
-            whip.stop(now + 0.26);
-            noise.start(now);
-            noise.stop(now + 0.26);
+            if (panner) {
+                panner.pan.value = panValue;
+                master.connect(panner);
+                panner.connect(context.destination);
+            } else {
+                master.connect(context.destination);
+            }
+
+            noise.start(startTime);
+            tone.start(startTime);
+            noise.stop(startTime + duration);
+            tone.stop(startTime + duration * 1.25);
         }
 
         function stopFinaleSwoosh() {
@@ -2267,6 +2310,7 @@
         
         function updateBallCount() {
             ballCountElement.textContent = balls.length;
+            checkFinaleBlastCue();
             updateFinaleSwoosh();
         }
 
