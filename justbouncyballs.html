@@ -1,0 +1,2201 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Stuiterballen Simulatie</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        #canvas {
+            display: block;
+            cursor: grab;
+        }
+        
+        #canvas:active {
+            cursor: grabbing;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            gap: 18px;
+        }
+        
+        #nameInputArea {
+            position: absolute;
+            top: 56px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.28);
+            border: none;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: none;
+            display: block !important;
+            visibility: visible !important;
+            min-width: 220px;
+            max-height: calc(100vh - 70px);
+            overflow-y: auto;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #ff0080, #00ff80);
+            border: none;
+            color: white;
+            padding: 15px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 0, 128, 0.5);
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(255, 0, 128, 0.8);
+        }
+        
+        .ball-btn {
+            position: relative;
+            width: 74px;
+            height: 74px;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            overflow: hidden;
+            color: white;
+            font-size: 13px;
+            font-weight: 900;
+            line-height: 1;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 10px currentColor;
+            background: radial-gradient(circle at 38% 32%, #7dff7d 0 16%, #00ff00 42%, #007a00 78%, #001400 100%);
+            box-shadow:
+                0 0 16px #00ff00,
+                0 0 32px rgba(0, 255, 0, 0.65),
+                inset -12px -14px 18px rgba(0, 0, 0, 0.55);
+            transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+        }
+
+        .ball-btn:hover:not(:disabled) {
+            transform: translateY(-2px) scale(1.08);
+            box-shadow:
+                0 0 20px #00ff00,
+                0 0 46px rgba(0, 255, 0, 0.85),
+                inset -12px -14px 18px rgba(0, 0, 0, 0.55);
+        }
+
+        .ball-btn:disabled {
+            opacity: 0.58;
+            cursor: not-allowed;
+        }
+
+        #resetBtn.ball-btn {
+            background: radial-gradient(circle at 38% 32%, #7dffd8 0 16%, #00ff9d 42%, #007a4b 78%, #00140c 100%);
+            box-shadow:
+                0 0 16px #00ff9d,
+                0 0 32px rgba(0, 255, 157, 0.65),
+                inset -12px -14px 18px rgba(0, 0, 0, 0.55);
+        }
+
+        #resetBtn.ball-btn:hover:not(:disabled) {
+            box-shadow:
+                0 0 20px #00ff9d,
+                0 0 46px rgba(0, 255, 157, 0.85),
+                inset -12px -14px 18px rgba(0, 0, 0, 0.55);
+        }
+
+        #simTieBtn.ball-btn {
+            background: radial-gradient(circle at 38% 32%, #7dffff 0 16%, #00ffff 42%, #007a7a 78%, #001414 100%);
+            box-shadow:
+                0 0 16px #00ffff,
+                0 0 32px rgba(0, 255, 255, 0.65),
+                inset -12px -14px 18px rgba(0, 0, 0, 0.55);
+        }
+
+        #simTieBtn.ball-btn:hover:not(:disabled) {
+            box-shadow:
+                0 0 20px #00ffff,
+                0 0 46px rgba(0, 255, 255, 0.85),
+                inset -12px -14px 18px rgba(0, 0, 0, 0.55);
+        }
+        
+        #info {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            color: #00ff80;
+            font-size: 14px;
+            text-shadow: 0 0 10px #00ff80;
+            max-width: 400px;
+        }
+        
+        #ballCount {
+            position: absolute;
+            top: 18px;
+            left: 24px;
+            right: auto;
+            z-index: 101;
+            color: #00ffff;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00ffff;
+        }
+
+        #musicPlayer {
+            position: absolute;
+            top: 18px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 6px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.32);
+            opacity: 0.72;
+            transition: opacity 0.18s ease;
+        }
+
+        #musicPlayer:hover {
+            opacity: 1;
+        }
+
+        .music-btn {
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: 1px solid #00ffff;
+            border-radius: 50%;
+            background: rgba(0, 255, 255, 0.08);
+            color: #00ffff;
+            font-size: 10px;
+            font-weight: 900;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.34);
+        }
+
+        .music-btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 12px rgba(0, 255, 255, 0.72);
+        }
+
+        #musicTitleWindow {
+            width: 118px;
+            overflow: hidden;
+            white-space: nowrap;
+            color: #cfffff;
+            font-family: 'Courier New', monospace;
+            font-size: 10.5px;
+            font-weight: 700;
+            text-shadow: 0 0 8px #00ffff;
+        }
+
+        #musicTitle {
+            display: inline-block;
+            min-width: 100%;
+            padding-left: 14px;
+            padding-right: 24px;
+            animation: music-title-scroll 10s linear infinite;
+        }
+
+        @keyframes music-title-scroll {
+            from { transform: translateX(0); }
+            to { transform: translateX(-100%); }
+        }
+        
+
+        
+        .color-row {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            gap: 10px;
+        }
+        
+        .color-box {
+            width: 20px;
+            height: 20px;
+            padding: 0;
+            border-radius: 50%;
+            border: 2px solid white;
+            background: currentColor;
+            box-shadow: 0 0 10px currentColor;
+            cursor: pointer;
+            flex: 0 0 auto;
+            transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+        }
+
+        .color-box:hover:not(:disabled) {
+            transform: scale(1.18);
+            box-shadow: 0 0 12px currentColor, 0 0 24px currentColor;
+        }
+
+        .color-box:disabled {
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+        
+        .color-count {
+            min-width: 30px;
+            padding: 4px 7px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .name-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #666;
+            border-radius: 5px;
+            padding: 5px 8px;
+            color: white;
+            font-size: 12px;
+            max-width: 110px;
+        }
+        
+        .name-input:focus {
+            outline: none;
+            border-color: #00ff80;
+            box-shadow: 0 0 5px rgba(0, 255, 128, 0.5);
+        }
+        
+
+        
+        #playerControls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 12px auto 0;
+        }
+
+        .player-count-btn {
+            display: grid;
+            place-items: center;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            border: 2px solid #00ff80;
+            border-radius: 50%;
+            background: rgba(0, 255, 128, 0.12);
+            color: #00ff80;
+            font-size: 0;
+            line-height: 0;
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(0, 255, 128, 0.45);
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+
+        .player-count-btn::before {
+            display: block;
+            font-size: 28px;
+            font-weight: 900;
+            line-height: 1;
+            transform: translateY(-1px);
+        }
+
+        #removePlayerBtn::before {
+            content: '−';
+            font-size: 32px;
+            transform: translateY(-2px);
+        }
+
+        #addPlayerBtn::before {
+            content: '+';
+        }
+
+        #removePlayerBtn {
+            border-color: #ff0080;
+            background: rgba(255, 0, 128, 0.12);
+            color: #ff0080;
+            box-shadow: 0 0 12px rgba(255, 0, 128, 0.45);
+        }
+
+        .player-count-btn:hover:not(:disabled) {
+            transform: scale(1.12);
+        }
+
+        .player-count-btn:disabled {
+            opacity: 0.25;
+            cursor: not-allowed;
+        }
+
+        #winnerOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.72);
+            backdrop-filter: blur(4px);
+        }
+
+        #winnerOverlay.visible {
+            display: flex;
+        }
+
+        #tieBattleOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 950;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.74);
+            backdrop-filter: blur(3px);
+        }
+
+        #tieBattleOverlay.visible {
+            display: flex;
+        }
+
+        .tie-battle-card {
+            width: min(820px, 82vw);
+            padding: 28px 34px 32px;
+            border: 4px solid white;
+            border-radius: 28px;
+            background: rgba(0, 0, 0, 0.84);
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.35), inset 0 0 30px rgba(255, 255, 255, 0.08);
+            text-align: center;
+        }
+
+        .tie-battle-label {
+            color: white;
+            font-size: clamp(1.8rem, 4vw, 3.4rem);
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-shadow: 0 0 18px white;
+        }
+
+        #tieBattleCanvas {
+            display: block;
+            width: 100%;
+            aspect-ratio: 12 / 7;
+            margin-top: 20px;
+            border-radius: 20px;
+            background: #020202;
+        }
+
+        #tieBattleNames {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .tie-battle-chip {
+            color: var(--chip-color);
+            border: 2px solid var(--chip-color);
+            border-radius: 999px;
+            padding: 7px 12px;
+            font-weight: 800;
+            text-shadow: 0 0 10px var(--chip-color);
+            box-shadow: 0 0 12px color-mix(in srgb, var(--chip-color), transparent 35%);
+        }
+
+        .winner-card {
+            position: relative;
+            z-index: 2;
+            min-width: min(680px, 78vw);
+            padding: 42px 60px;
+            border: 4px solid var(--winner-color, #ffd700);
+            border-radius: 32px;
+            background: rgba(0, 0, 0, 0.82);
+            box-shadow: 0 0 35px var(--winner-color, #ffd700), inset 0 0 35px rgba(255, 255, 255, 0.08);
+            text-align: center;
+            animation: winner-pop 0.7s cubic-bezier(.2, 1.6, .4, 1);
+        }
+
+        .winner-label {
+            color: white;
+            font-size: clamp(2.2rem, 6vw, 5rem);
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        #winnerName {
+            margin-top: 12px;
+            color: var(--winner-color, #ffd700);
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-size: clamp(3rem, 9vw, 8rem);
+            font-weight: 900;
+            line-height: 1;
+            text-shadow: 0 0 18px var(--winner-color, #ffd700), 0 0 45px var(--winner-color, #ffd700);
+        }
+
+        #winnerScore {
+            margin-top: 22px;
+            color: white;
+            font-size: clamp(1rem, 2vw, 1.5rem);
+        }
+
+        #winnerResetBtn {
+            margin-top: 28px;
+            width: 86px;
+            height: 86px;
+            font-size: 14px;
+            background: radial-gradient(circle at 38% 32%, var(--winner-color, #ffd700) 0 42%, rgba(0, 0, 0, 0.62) 100%);
+            box-shadow:
+                0 0 16px var(--winner-color, #ffd700),
+                0 0 36px var(--winner-color, #ffd700),
+                inset -14px -16px 20px rgba(0, 0, 0, 0.55);
+        }
+
+        #winnerConfetti {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .confetti-ball {
+            position: absolute;
+            top: -10vh;
+            left: var(--x);
+            width: var(--size);
+            height: var(--size);
+            border-radius: 50%;
+            background: var(--color);
+            box-shadow: 0 0 10px var(--color), 0 0 24px var(--color);
+            animation: ball-confetti var(--duration) linear var(--delay) infinite;
+        }
+
+        @keyframes winner-pop {
+            from { opacity: 0; transform: scale(0.35) rotate(-4deg); }
+            to { opacity: 1; transform: scale(1) rotate(0); }
+        }
+
+        @keyframes ball-confetti {
+            0% { transform: translate3d(0, -12vh, 0) scale(0.5); opacity: 0; }
+            10% { opacity: 1; }
+            100% { transform: translate3d(var(--drift), 125vh, 0) scale(1.15); opacity: 0.85; }
+        }
+        
+        #title {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-size: 4rem;
+            font-weight: bold;
+            color: #ff0080;
+            text-shadow: 
+                0 0 20px #ff0080,
+                0 0 40px #ff0080,
+                0 0 60px #ff0080;
+            animation: bounce 2s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 50;
+            letter-spacing: 3px;
+            text-align: center;
+            white-space: nowrap;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translate(-50%, -50%) translateY(0);
+            }
+            40% {
+                transform: translate(-50%, -50%) translateY(-20px);
+            }
+            60% {
+                transform: translate(-50%, -50%) translateY(-10px);
+            }
+        }
+        
+        #developer-credit {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-size: 0.8rem;
+            color: #666;
+            text-align: center;
+            pointer-events: none;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <button id="startBtn" class="btn ball-btn">Start</button>
+        <button id="resetBtn" class="btn ball-btn">Reset</button>
+        <button id="simTieBtn" class="btn ball-btn" type="button" title="Sim tie battle. Shift+click voor 3 spelers.">Sim</button>
+    </div>
+    
+    <div id="nameInputArea">
+        <div id="colorList"></div>
+        <div id="playerControls">
+            <button id="removePlayerBtn" class="player-count-btn" type="button" aria-label="Speler verwijderen" title="Speler verwijderen">-</button>
+            <button id="addPlayerBtn" class="player-count-btn" type="button" aria-label="Speler toevoegen" title="Speler toevoegen">+</button>
+        </div>
+    </div>
+
+    <div id="title">Just Bouncy Balls</div>
+    <div id="ballCount">Balls: <span id="count">1</span></div>
+    <div id="musicPlayer" aria-label="Playlist controls">
+        <button id="prevTrackBtn" class="music-btn" type="button" aria-label="Previous track"><<</button>
+        <div id="musicTitleWindow" aria-live="polite">
+            <span id="musicTitle">Bounce Bit Blast</span>
+        </div>
+        <button id="nextTrackBtn" class="music-btn" type="button" aria-label="Next track">>></button>
+    </div>
+    
+    <div id="developer-credit">Developed by BorBoid 2025</div>
+    
+    <canvas id="canvas"></canvas>
+    <audio id="backgroundMusic" preload="auto"></audio>
+
+    <div id="tieBattleOverlay" aria-hidden="true">
+        <div class="tie-battle-card">
+            <div class="tie-battle-label">Tie Battle</div>
+            <canvas id="tieBattleCanvas" width="720" height="420"></canvas>
+            <div id="tieBattleNames"></div>
+        </div>
+    </div>
+
+    <div id="winnerOverlay" role="dialog" aria-modal="true" aria-labelledby="winnerName" aria-hidden="true">
+        <div id="winnerConfetti"></div>
+        <div class="winner-card">
+            <div class="winner-label">Winner!</div>
+            <div id="winnerName"></div>
+            <div id="winnerScore"></div>
+            <button id="winnerResetBtn" class="btn ball-btn" type="button">Again</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const simTieBtn = document.getElementById('simTieBtn');
+        const addPlayerBtn = document.getElementById('addPlayerBtn');
+        const removePlayerBtn = document.getElementById('removePlayerBtn');
+        const winnerResetBtn = document.getElementById('winnerResetBtn');
+        const ballCountElement = document.getElementById('count');
+        const tieBattleOverlay = document.getElementById('tieBattleOverlay');
+        const tieBattleCanvas = document.getElementById('tieBattleCanvas');
+        const tieBattleCtx = tieBattleCanvas.getContext('2d');
+        const tieBattleNames = document.getElementById('tieBattleNames');
+        const backgroundMusic = document.getElementById('backgroundMusic');
+        const prevTrackBtn = document.getElementById('prevTrackBtn');
+        const nextTrackBtn = document.getElementById('nextTrackBtn');
+        const musicTitle = document.getElementById('musicTitle');
+        
+        // Game state variables
+        let gameStarted = false;
+        let gameEnded = false;
+        let finaleStartTime = null;
+        let tieBattleFrameId = null;
+        let tieBattleState = null;
+        let audioCtx = null;
+        let popNoiseBuffer = null;
+        let swooshNoiseBuffer = null;
+        let finaleSwoosh = null;
+        let finaleSwooshFinished = false;
+        let musicStarted = false;
+        let musicRestoreFrame = null;
+        let lastLetterPopTime = 0;
+        let lastBattlePopTime = 0;
+        const MUSIC_BASE_VOLUME = 0.32;
+        const MUSIC_DUCKED_VOLUME = 0.035;
+        const MAX_BALLS = 2000;
+        const SWOOSH_START_BALLS = 100;
+        const FINALE_SETTLE_MS = 1000;
+        const FINALE_BOTTOM_BALL_HEIGHTS = 10;
+        const musicPlaylist = [
+            'sounds/Bounce Bit Blast.mp3',
+            'sounds/Neon Bounce Arcade.mp3',
+            'sounds/Neon Bounce Circuit.mp3',
+            'sounds/Neon Bounce Loop.mp3',
+            'sounds/Neon Bounce Rasta.mp3',
+            'sounds/Neon Bounce Run.mp3',
+            'sounds/Neon Just Bouncy balls.mp3',
+            'sounds/Neon Pinball Run.mp3',
+            'sounds/Popcorn Arcade 2.mp3',
+            'sounds/Popcorn Arcade.mp3'
+        ];
+        let currentMusicTrackIndex = 0;
+        
+        // Canvas grootte instellen
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Twelve clearly distinguishable neon player colors.
+        const neonColors = [
+            '#ff0080', // Hot pink
+            '#00ff00', // Neon green
+            '#0080ff', // Electric blue
+            '#ff8000', // Orange
+            '#8000ff', // Violet
+            '#00ffff', // Cyan
+            '#ffff00', // Yellow
+            '#ff2020', // Red
+            '#ffffff', // White
+            '#00d8a8', // Teal
+            '#ff4a6d', // Rose
+            '#ffb000'  // Gold
+        ];
+        const MIN_PLAYERS = 1;
+        const STARTING_PLAYERS = 5;
+        const MAX_PLAYERS = 12;
+        let activePlayerCount = STARTING_PLAYERS;
+        let selectedPlayerColors = neonColors.slice(0, STARTING_PLAYERS);
+        
+        // Letter color tracking
+        let letterColors = {};
+        let defaultLetterColor = '#ff0080';
+        let playerNames = {}; // Store player names for each color
+        
+        class Ball {
+            constructor(x, y, radius = null, color = null) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius || Math.random() * 12 + 8;
+                const availableColors = getActiveColors();
+                this.color = color || availableColors[Math.floor(Math.random() * availableColors.length)];
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = (Math.random() - 0.5) * 4;
+                this.isDragging = false;
+                this.dragOffsetX = 0;
+                this.dragOffsetY = 0;
+                this.minRadius = 6;
+                this.glowIntensity = Math.random() * 0.5 + 0.5;
+                this.hasCollided = false; // Voorkomt meerdere botsingen per frame
+            }
+            
+            update() {
+                if (!this.isDragging) {
+                    // Zwaartekracht
+                    this.vy += 0.15;
+                    
+                    // Positie updaten
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    
+                    // Keep bouncing consistent for better ball behavior
+                    
+                    // Stuiter van de randen met betere boundary handling
+                    if (this.x + this.radius > canvas.width) {
+                        this.x = canvas.width - this.radius;
+                        this.vx = -Math.abs(this.vx) * 0.8; // Ensure bounce away from wall
+                        // Small controlled randomness only
+                        this.vy += (Math.random() - 0.5) * 0.5;
+                    }
+                    if (this.x - this.radius < 0) {
+                        this.x = this.radius;
+                        this.vx = Math.abs(this.vx) * 0.8; // Ensure bounce away from wall
+                        // Small controlled randomness only
+                        this.vy += (Math.random() - 0.5) * 0.5;
+                    }
+                    if (this.y + this.radius > canvas.height) {
+                        this.y = canvas.height - this.radius;
+                        this.vy = -Math.abs(this.vy) * 0.7; // Slightly less bouncy on ground
+                        // Small controlled randomness only
+                        this.vx += (Math.random() - 0.5) * 0.5;
+                    }
+                    if (this.y - this.radius < 0) {
+                        this.y = this.radius;
+                        this.vy = Math.abs(this.vy) * 0.8; // Ensure bounce away from ceiling
+                        // Small controlled randomness only
+                        this.vx += (Math.random() - 0.5) * 0.5;
+                    }
+                    
+                    // Title collision detection
+                    this.checkTitleCollision();
+                    
+                    // Wrijving
+                    this.vx *= 0.999;
+                    this.vy *= 0.999;
+                }
+                
+                // Reset collision flag
+                this.hasCollided = false;
+            }
+            
+            isAtRest() {
+                return this.isWithinFinaleBottomZone();
+            }
+
+            isWithinFinaleBottomZone() {
+                const ballHeight = this.radius * 2;
+                const topOfBall = this.y - this.radius;
+                const bottomZoneTop = canvas.height - (FINALE_BOTTOM_BALL_HEIGHTS * ballHeight);
+
+                return topOfBall >= bottomZoneTop;
+            }
+            
+            checkTitleCollision() {
+                // Get title position
+                const titleCenterX = canvas.width / 2;
+                const titleCenterY = canvas.height / 2;
+                
+                // Define letter collision boxes with better boundaries
+                const fontSize = 64; // 4rem converted to pixels
+                const letterSpacing = 3;
+                const letterWidth = fontSize * 0.5; // Slightly wider for better detection
+                const letterHeight = fontSize * 0.85; // Slightly taller for better detection
+                
+                // Calculate starting position for the text
+                const text = "Just Bouncy Balls";
+                const totalTextWidth = (text.length * letterWidth) + ((text.length - 1) * letterSpacing);
+                const startX = titleCenterX - totalTextWidth / 2;
+                const startY = titleCenterY - letterHeight / 2;
+                
+                let currentX = startX;
+                
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    
+                    // Skip spaces - allow balls to fall through
+                    if (char === ' ') {
+                        currentX += letterWidth * 0.6; // Space width
+                        continue;
+                    }
+                    
+                    // Define letter collision box with expanded detection area
+                    const letterLeft = currentX + letterWidth * 0.05; // Smaller margin for better detection
+                    const letterRight = currentX + letterWidth * 0.95; // Smaller margin for better detection
+                    const letterTop = startY + letterHeight * 0.05; // Smaller margin for better detection
+                    const letterBottom = startY + letterHeight * 0.95; // Smaller margin for better detection
+                    
+                    // Get ball position and radius
+                    const ballCenterX = this.x;
+                    const ballCenterY = this.y;
+                    const ballRadius = this.radius;
+                    
+                    // Expanded collision detection - check both current and next position
+                    const nextX = ballCenterX + this.vx;
+                    const nextY = ballCenterY + this.vy;
+                    
+                    // Check collision with current position
+                    let collision = this.checkRectangleCollision(ballCenterX, ballCenterY, ballRadius, letterLeft, letterRight, letterTop, letterBottom);
+                    
+                    // Also check collision with next position to catch fast-moving balls
+                    if (!collision) {
+                        collision = this.checkRectangleCollision(nextX, nextY, ballRadius, letterLeft, letterRight, letterTop, letterBottom);
+                    }
+                    
+                    // Additional check: see if ball path intersects with letter rectangle
+                    if (!collision) {
+                        collision = this.checkLineRectangleIntersection(ballCenterX, ballCenterY, nextX, nextY, ballRadius, letterLeft, letterRight, letterTop, letterBottom);
+                    }
+                    
+                    if (collision) {
+                        // Collision detected!
+                        
+                        // Change letter color to ball color
+                        letterColors[i] = this.color;
+                        updateTitleColor();
+                        playPopcornPop();
+                        
+                        // Determine collision direction based on ball position relative to letter center
+                        const letterCenterX = (letterLeft + letterRight) / 2;
+                        const letterCenterY = (letterTop + letterBottom) / 2;
+                        
+                        const deltaX = ballCenterX - letterCenterX;
+                        const deltaY = ballCenterY - letterCenterY;
+                        
+                        // Determine which side of the letter was hit with improved logic
+                        const absX = Math.abs(deltaX);
+                        const absY = Math.abs(deltaY);
+                        
+                        // Calculate overlap on each side to determine best bounce direction
+                        const overlapLeft = (ballCenterX + ballRadius) - letterLeft;
+                        const overlapRight = letterRight - (ballCenterX - ballRadius);
+                        const overlapTop = (ballCenterY + ballRadius) - letterTop;
+                        const overlapBottom = letterBottom - (ballCenterY - ballRadius);
+                        
+                        // Find the side with minimum overlap (most likely collision side)
+                        const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+                        
+                        if (minOverlap === overlapLeft) {
+                            // Hit left side of letter
+                            this.x = letterLeft - ballRadius - 3;
+                            this.vx = -Math.abs(this.vx) * 1.4 - 2;
+                        } else if (minOverlap === overlapRight) {
+                            // Hit right side of letter
+                            this.x = letterRight + ballRadius + 3;
+                            this.vx = Math.abs(this.vx) * 1.4 + 2;
+                        } else if (minOverlap === overlapTop) {
+                            // Hit top of letter
+                            this.y = letterTop - ballRadius - 3;
+                            this.vy = -Math.abs(this.vy) * 1.4 - 2;
+                        } else {
+                            // Hit bottom of letter
+                            this.y = letterBottom + ballRadius + 3;
+                            this.vy = Math.abs(this.vy) * 1.4 + 2;
+                        }
+                        
+                        // Add more randomness and energy to prevent getting stuck
+                        this.vx += (Math.random() - 0.5) * 3;
+                        this.vy += (Math.random() - 0.5) * 3;
+                        
+                        // Ensure minimum velocity to prevent sticking
+                        if (Math.abs(this.vx) < 1) this.vx = (this.vx >= 0 ? 1 : -1);
+                        if (Math.abs(this.vy) < 1) this.vy = (this.vy >= 0 ? 1 : -1);
+                        
+                        return; // Exit after first collision
+                    }
+                    
+                    currentX += letterWidth + letterSpacing;
+                }
+            }
+            
+            // Helper function to check if a circle collides with a rectangle
+            checkRectangleCollision(circleX, circleY, radius, rectLeft, rectRight, rectTop, rectBottom) {
+                // Find the closest point on the rectangle to the circle center
+                const closestX = Math.max(rectLeft, Math.min(circleX, rectRight));
+                const closestY = Math.max(rectTop, Math.min(circleY, rectBottom));
+                
+                // Calculate distance from circle center to closest point
+                const distanceX = circleX - closestX;
+                const distanceY = circleY - closestY;
+                const distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
+                
+                return distanceSquared < (radius * radius);
+            }
+            
+            // Helper function to check if a moving circle intersects with a rectangle
+            checkLineRectangleIntersection(x1, y1, x2, y2, radius, rectLeft, rectRight, rectTop, rectBottom) {
+                // Expand rectangle by radius to account for circle size
+                const expandedLeft = rectLeft - radius;
+                const expandedRight = rectRight + radius;
+                const expandedTop = rectTop - radius;
+                const expandedBottom = rectBottom + radius;
+                
+                // Check if line segment intersects with expanded rectangle
+                return this.lineIntersectsRect(x1, y1, x2, y2, expandedLeft, expandedRight, expandedTop, expandedBottom);
+            }
+            
+            // Helper function to check if a line segment intersects with a rectangle
+            lineIntersectsRect(x1, y1, x2, y2, rectLeft, rectRight, rectTop, rectBottom) {
+                // Check if either endpoint is inside the rectangle
+                if ((x1 >= rectLeft && x1 <= rectRight && y1 >= rectTop && y1 <= rectBottom) ||
+                    (x2 >= rectLeft && x2 <= rectRight && y2 >= rectTop && y2 <= rectBottom)) {
+                    return true;
+                }
+                
+                // Check if line intersects any of the rectangle edges
+                return this.lineIntersectsLine(x1, y1, x2, y2, rectLeft, rectTop, rectRight, rectTop) ||    // Top edge
+                       this.lineIntersectsLine(x1, y1, x2, y2, rectRight, rectTop, rectRight, rectBottom) || // Right edge
+                       this.lineIntersectsLine(x1, y1, x2, y2, rectRight, rectBottom, rectLeft, rectBottom) || // Bottom edge
+                       this.lineIntersectsLine(x1, y1, x2, y2, rectLeft, rectBottom, rectLeft, rectTop);    // Left edge
+            }
+            
+            // Helper function to check if two line segments intersect
+            lineIntersectsLine(x1, y1, x2, y2, x3, y3, x4, y4) {
+                const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+                if (Math.abs(denom) < 0.0001) return false; // Lines are parallel
+                
+                const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+                const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+                
+                return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+            }
+            
+            draw() {
+                // Simplified drawing for better performance with many balls
+                if (balls.length > 500) {
+                    // Simple solid circles when there are many balls
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // Full neon effect when there are fewer balls
+                    // Neon glow effect
+                    const gradient = ctx.createRadialGradient(
+                        this.x, this.y, 0,
+                        this.x, this.y, this.radius * 2
+                    );
+                    gradient.addColorStop(0, this.color);
+                    gradient.addColorStop(0.7, this.color + '80');
+                    gradient.addColorStop(1, this.color + '00');
+                    
+                    // Outer glow
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'screen';
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius * 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                    
+                    // Main ball
+                    ctx.save();
+                    ctx.shadowColor = this.color;
+                    ctx.shadowBlur = 20 * this.glowIntensity;
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Inner highlight
+                    const highlightGradient = ctx.createRadialGradient(
+                        this.x - this.radius * 0.3, this.y - this.radius * 0.3, 0,
+                        this.x, this.y, this.radius
+                    );
+                    highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+                    highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    ctx.fillStyle = highlightGradient;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+            
+            isPointInside(x, y) {
+                const dx = x - this.x;
+                const dy = y - this.y;
+                return dx * dx + dy * dy <= this.radius * this.radius;
+            }
+            
+            shrink() {
+                this.radius = Math.max(this.radius * 0.5, this.minRadius);
+            }
+        }
+        
+        let balls = [];
+        let draggedBall = null;
+        let mouseX = 0;
+        let mouseY = 0;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        
+        function initGame() {
+            balls = [];
+            updateBallCount();
+        }
+        
+        function startGame() {
+            if (gameStarted && !gameEnded) return;
+            if (gameEnded) {
+                letterColors = {};
+                gameEnded = false;
+                finaleStartTime = null;
+                finaleSwooshFinished = false;
+                stopFinaleSwoosh();
+                hideWinner();
+                updateTitleColor();
+                initGame();
+            }
+            ensureAudio();
+            startBackgroundMusic();
+            
+            gameStarted = true;
+            startBtn.textContent = 'Busy';
+            startBtn.disabled = true;
+            startBtn.style.opacity = '0.5';
+            startBtn.style.cursor = 'not-allowed';
+            resetBtn.disabled = true;
+            simTieBtn.disabled = true;
+            renderPlayerList();
+            
+            // Start with one ball for every visible player.
+            balls = [];
+            const centerX = canvas.width / 2;
+            const titleY = canvas.height / 2;
+            const startY = titleY - 150; // Position above the title
+            const spacing = activePlayerCount > 1
+                ? Math.min(80, (canvas.width - 120) / (activePlayerCount - 1))
+                : 0;
+            
+            for (let i = 0; i < activePlayerCount; i++) {
+                const offsetX = (i - (activePlayerCount - 1) / 2) * spacing;
+                const color = getActiveColors()[i];
+                balls.push(new Ball(centerX + offsetX, startY, null, color));
+            }
+            updateBallCount();
+            addPlayerBtn.disabled = true;
+            removePlayerBtn.disabled = true;
+        }
+        
+        function resetGame() {
+            letterColors = {}; // Reset letter colors
+            // Keep playerNames - don't reset them so names stay filled in
+            gameStarted = false;
+            gameEnded = false;
+            finaleStartTime = null;
+            finaleSwooshFinished = false;
+            stopFinaleSwoosh();
+            stopTieBattle();
+            
+            // Clear any running intervals
+            clearInterval(window.addBallsInterval);
+            
+            enableStartButton();
+            resetBtn.disabled = false;
+            simTieBtn.disabled = false;
+            
+            updateTitleColor();
+            hideWinner();
+            initGame();
+            renderPlayerList();
+        }
+        
+        function countLetterColors() {
+            const colorCounts = {};
+            
+            getActiveColors().forEach(color => {
+                colorCounts[color] = 0;
+            });
+            
+            // Count letters for each color
+            Object.values(letterColors).forEach(color => {
+                if (colorCounts.hasOwnProperty(color)) {
+                    colorCounts[color]++;
+                }
+            });
+            
+            return colorCounts;
+        }
+        
+        function getActiveColors() {
+            return selectedPlayerColors.slice(0, activePlayerCount);
+        }
+
+        function getUnusedColors(exceptIndex = -1) {
+            const activeColors = getActiveColors();
+            return neonColors.filter(color => (
+                color === selectedPlayerColors[exceptIndex] ||
+                !activeColors.includes(color)
+            ));
+        }
+
+        function renderPlayerList() {
+            const colorCounts = countLetterColors();
+            const colorList = document.getElementById('colorList');
+            colorList.innerHTML = '';
+
+            getActiveColors().forEach((color, index) => {
+                const count = colorCounts[color];
+                const row = document.createElement('div');
+                row.className = 'color-row';
+
+                const colorBox = document.createElement('button');
+                colorBox.type = 'button';
+                colorBox.className = 'color-box';
+                colorBox.style.color = color;
+                colorBox.setAttribute('aria-label', `Kleur wijzigen voor speler ${index + 1}`);
+                colorBox.title = 'Kleur wijzigen';
+                colorBox.tabIndex = -1;
+                colorBox.disabled = gameStarted && !gameEnded;
+                colorBox.addEventListener('click', () => cyclePlayerColor(index));
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'name-input';
+                input.placeholder = `Speler ${index + 1}`;
+                input.value = playerNames[color] || '';
+                input.maxLength = 14;
+                input.disabled = gameStarted && !gameEnded;
+                input.addEventListener('input', () => updatePlayerName(color, input.value));
+
+                const score = document.createElement('div');
+                score.className = 'color-count';
+                score.id = `player-score-${index}`;
+                score.textContent = count;
+                score.style.color = color;
+
+                row.append(colorBox, input, score);
+                colorList.appendChild(row);
+            });
+
+            const roundInProgress = gameStarted && !gameEnded;
+            removePlayerBtn.disabled = activePlayerCount <= MIN_PLAYERS || roundInProgress;
+            addPlayerBtn.disabled = activePlayerCount >= MAX_PLAYERS || roundInProgress;
+            removePlayerBtn.title = activePlayerCount <= MIN_PLAYERS
+                ? 'Minimaal 1 speler'
+                : 'Speler verwijderen';
+            addPlayerBtn.title = activePlayerCount >= MAX_PLAYERS
+                ? 'Maximum van 12 spelers bereikt'
+                : 'Speler toevoegen';
+        }
+
+        function updateScores() {
+            const colorCounts = countLetterColors();
+            getActiveColors().forEach((color, index) => {
+                const score = document.getElementById(`player-score-${index}`);
+                if (score) score.textContent = colorCounts[color] || 0;
+            });
+        }
+        
+        function updatePlayerName(color, name) {
+            playerNames[color] = name.trim();
+        }
+
+        function addPlayer() {
+            if (activePlayerCount >= MAX_PLAYERS || (gameStarted && !gameEnded)) return;
+            const usedColors = getActiveColors();
+            const nextColor = neonColors.find(color => !usedColors.includes(color));
+            selectedPlayerColors[activePlayerCount] = nextColor || neonColors[activePlayerCount];
+            activePlayerCount++;
+            renderPlayerList();
+        }
+
+        function removePlayer() {
+            if (activePlayerCount <= MIN_PLAYERS || (gameStarted && !gameEnded)) return;
+            activePlayerCount--;
+            renderPlayerList();
+        }
+
+        function cyclePlayerColor(index) {
+            if (gameStarted && !gameEnded) return;
+
+            const currentColor = selectedPlayerColors[index];
+            const availableColors = getUnusedColors(index);
+            if (availableColors.length <= 1) return;
+
+            const currentPaletteIndex = neonColors.indexOf(currentColor);
+            const nextColor = neonColors
+                .slice(currentPaletteIndex + 1)
+                .concat(neonColors.slice(0, currentPaletteIndex + 1))
+                .find(color => availableColors.includes(color) && color !== currentColor);
+
+            if (!nextColor) return;
+
+            const currentName = playerNames[currentColor] || '';
+            selectedPlayerColors[index] = nextColor;
+            playerNames[nextColor] = currentName;
+            delete playerNames[currentColor];
+            renderPlayerList();
+        }
+
+        function ensureAudio() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+
+            if (AudioContext && !audioCtx) {
+                audioCtx = new AudioContext();
+                popNoiseBuffer = createPopNoiseBuffer(audioCtx);
+                swooshNoiseBuffer = createSwooshNoiseBuffer(audioCtx);
+            }
+
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        function startBackgroundMusic() {
+            if (!backgroundMusic || musicPlaylist.length === 0) return;
+            if (musicStarted && !backgroundMusic.paused) return;
+
+            backgroundMusic.volume = MUSIC_BASE_VOLUME;
+            backgroundMusic.loop = false;
+            if (!backgroundMusic.src) {
+                setBackgroundTrack(currentMusicTrackIndex, false);
+            }
+
+            backgroundMusic.play()
+                .then(() => {
+                    musicStarted = true;
+                })
+                .catch(() => {
+                    musicStarted = false;
+                });
+        }
+
+        function setBackgroundTrack(index, shouldPlay = musicStarted) {
+            if (!backgroundMusic || musicPlaylist.length === 0) return;
+
+            currentMusicTrackIndex = (index + musicPlaylist.length) % musicPlaylist.length;
+            backgroundMusic.src = musicPlaylist[currentMusicTrackIndex];
+            updateMusicTitle();
+
+            if (shouldPlay) {
+                musicStarted = false;
+                startBackgroundMusic();
+            }
+        }
+
+        function playNextBackgroundTrack() {
+            if (!backgroundMusic || musicPlaylist.length === 0) return;
+
+            setBackgroundTrack(currentMusicTrackIndex + 1, true);
+        }
+
+        function playPreviousBackgroundTrack() {
+            if (!backgroundMusic || musicPlaylist.length === 0) return;
+
+            setBackgroundTrack(currentMusicTrackIndex - 1, true);
+        }
+
+        function updateMusicTitle() {
+            if (!musicTitle || musicPlaylist.length === 0) return;
+
+            const trackPath = musicPlaylist[currentMusicTrackIndex];
+            const trackName = decodeURIComponent(trackPath.split('/').pop()).replace(/\.[^.]+$/, '');
+            musicTitle.textContent = `${trackName}   `;
+        }
+
+        function duckBackgroundMusic(progress) {
+            if (!backgroundMusic) return;
+
+            if (musicRestoreFrame) {
+                cancelAnimationFrame(musicRestoreFrame);
+                musicRestoreFrame = null;
+            }
+
+            const shapedProgress = Math.max(0, Math.min(1, progress * progress));
+            backgroundMusic.volume = MUSIC_BASE_VOLUME - ((MUSIC_BASE_VOLUME - MUSIC_DUCKED_VOLUME) * shapedProgress);
+        }
+
+        function restoreBackgroundMusic(duration = 900) {
+            if (!backgroundMusic) return;
+            if (musicRestoreFrame) cancelAnimationFrame(musicRestoreFrame);
+
+            const startVolume = backgroundMusic.volume;
+            const startedAt = performance.now();
+
+            function step(now) {
+                const progress = Math.min(1, (now - startedAt) / duration);
+                const ease = 1 - Math.pow(1 - progress, 3);
+                backgroundMusic.volume = startVolume + ((MUSIC_BASE_VOLUME - startVolume) * ease);
+
+                if (progress < 1) {
+                    musicRestoreFrame = requestAnimationFrame(step);
+                } else {
+                    backgroundMusic.volume = MUSIC_BASE_VOLUME;
+                    musicRestoreFrame = null;
+                }
+            }
+
+            musicRestoreFrame = requestAnimationFrame(step);
+        }
+
+        function createPopNoiseBuffer(context) {
+            const duration = 0.045;
+            const sampleCount = Math.floor(context.sampleRate * duration);
+            const buffer = context.createBuffer(1, sampleCount, context.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            for (let i = 0; i < sampleCount; i++) {
+                const envelope = 1 - i / sampleCount;
+                data[i] = (Math.random() * 2 - 1) * envelope * envelope;
+            }
+
+            return buffer;
+        }
+
+        function createSwooshNoiseBuffer(context) {
+            const duration = 1.2;
+            const sampleCount = Math.floor(context.sampleRate * duration);
+            const buffer = context.createBuffer(1, sampleCount, context.sampleRate);
+            const data = buffer.getChannelData(0);
+            let previous = 0;
+
+            for (let i = 0; i < sampleCount; i++) {
+                const white = Math.random() * 2 - 1;
+                previous = previous * 0.62 + white * 0.38;
+                data[i] = previous;
+            }
+
+            return buffer;
+        }
+
+        function getFinaleSwooshProgress() {
+            return Math.max(0, Math.min(1, (balls.length - SWOOSH_START_BALLS) / (MAX_BALLS - SWOOSH_START_BALLS)));
+        }
+
+        function updateFinaleSwoosh() {
+            if (!gameStarted || gameEnded || finaleSwooshFinished || balls.length < SWOOSH_START_BALLS) return;
+
+            const context = ensureAudio();
+            if (!context || !swooshNoiseBuffer) return;
+
+            if (!finaleSwoosh) startFinaleSwoosh(context);
+
+            const progress = getFinaleSwooshProgress();
+            const now = context.currentTime;
+            const curve = Math.pow(progress, 1.35);
+            const bite = Math.pow(progress, 2.2);
+            const volume = 0.018 + curve * 0.46;
+            const toneVolume = 0.018 + bite * 0.07;
+            const filterFrequency = 300 + curve * 9800;
+            const highpassFrequency = 55 + progress * 1450;
+            const toneFrequency = 90 + curve * 1520;
+
+            duckBackgroundMusic(progress);
+
+            finaleSwoosh.master.gain.cancelScheduledValues(now);
+            finaleSwoosh.master.gain.linearRampToValueAtTime(volume, now + 0.035);
+            finaleSwoosh.toneGain.gain.cancelScheduledValues(now);
+            finaleSwoosh.toneGain.gain.linearRampToValueAtTime(toneVolume, now + 0.035);
+            finaleSwoosh.filter.frequency.cancelScheduledValues(now);
+            finaleSwoosh.filter.frequency.linearRampToValueAtTime(filterFrequency, now + 0.035);
+            finaleSwoosh.highpass.frequency.cancelScheduledValues(now);
+            finaleSwoosh.highpass.frequency.linearRampToValueAtTime(highpassFrequency, now + 0.035);
+            finaleSwoosh.tone.frequency.cancelScheduledValues(now);
+            finaleSwoosh.tone.frequency.linearRampToValueAtTime(toneFrequency, now + 0.035);
+
+            if (balls.length >= MAX_BALLS) finishFinaleSwoosh();
+        }
+
+        function startFinaleSwoosh(context) {
+            const now = context.currentTime;
+            const noise = context.createBufferSource();
+            const filter = context.createBiquadFilter();
+            const highpass = context.createBiquadFilter();
+            const tone = context.createOscillator();
+            const toneGain = context.createGain();
+            const master = context.createGain();
+            const panner = context.createStereoPanner ? context.createStereoPanner() : null;
+
+            noise.buffer = swooshNoiseBuffer;
+            noise.loop = true;
+            filter.type = 'bandpass';
+            filter.frequency.value = 300;
+            filter.Q.value = 1.45;
+            highpass.type = 'highpass';
+            highpass.frequency.value = 55;
+            tone.type = 'sawtooth';
+            tone.frequency.value = 90;
+            toneGain.gain.value = 0.018;
+            master.gain.value = 0.0001;
+
+            noise.connect(highpass);
+            highpass.connect(filter);
+            filter.connect(master);
+            tone.connect(toneGain);
+            toneGain.connect(master);
+
+            if (panner) {
+                panner.pan.value = 0;
+                master.connect(panner);
+                panner.connect(context.destination);
+            } else {
+                master.connect(context.destination);
+            }
+
+            noise.start(now);
+            tone.start(now);
+            finaleSwoosh = { noise, filter, highpass, tone, toneGain, master };
+        }
+
+        function finishFinaleSwoosh() {
+            if (finaleSwooshFinished) return;
+
+            const context = ensureAudio();
+            if (!context) return;
+
+            finaleSwooshFinished = true;
+            const now = context.currentTime;
+
+            if (finaleSwoosh) {
+                finaleSwoosh.master.gain.cancelScheduledValues(now);
+                finaleSwoosh.master.gain.setValueAtTime(finaleSwoosh.master.gain.value, now);
+                finaleSwoosh.master.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+                finaleSwoosh.toneGain.gain.cancelScheduledValues(now);
+                finaleSwoosh.toneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+                finaleSwoosh.tone.frequency.cancelScheduledValues(now);
+                finaleSwoosh.tone.frequency.exponentialRampToValueAtTime(2200, now + 0.065);
+                finaleSwoosh.noise.stop(now + 0.12);
+                finaleSwoosh.tone.stop(now + 0.12);
+                finaleSwoosh = null;
+            }
+
+            playFinaleWhip(context, now);
+            restoreBackgroundMusic(1100);
+        }
+
+        function playFinaleWhip(context, now) {
+            const whip = context.createOscillator();
+            const whipGain = context.createGain();
+            const noise = context.createBufferSource();
+            const noiseFilter = context.createBiquadFilter();
+            const noiseGain = context.createGain();
+
+            whip.type = 'triangle';
+            whip.frequency.setValueAtTime(1900, now);
+            whip.frequency.exponentialRampToValueAtTime(140, now + 0.19);
+            whipGain.gain.setValueAtTime(0.28, now);
+            whipGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+            noise.buffer = swooshNoiseBuffer;
+            noise.playbackRate.value = 3.9;
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.setValueAtTime(8200, now);
+            noiseFilter.frequency.exponentialRampToValueAtTime(420, now + 0.22);
+            noiseFilter.Q.value = 6.4;
+            noiseGain.gain.setValueAtTime(0.34, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+            whip.connect(whipGain);
+            whipGain.connect(context.destination);
+            noise.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(context.destination);
+
+            whip.start(now);
+            whip.stop(now + 0.26);
+            noise.start(now);
+            noise.stop(now + 0.26);
+        }
+
+        function stopFinaleSwoosh() {
+            if (!finaleSwoosh) return;
+
+            const context = audioCtx;
+            const now = context ? context.currentTime : 0;
+
+            try {
+                finaleSwoosh.noise.stop(now + 0.02);
+                finaleSwoosh.tone.stop(now + 0.02);
+            } catch (error) {
+                // Already stopped.
+            }
+
+            finaleSwoosh = null;
+            restoreBackgroundMusic(250);
+        }
+        
+        function playPopcornPop(options = {}) {
+            const context = ensureAudio();
+            if (!context || !popNoiseBuffer) return;
+
+            const mode = options.mode || 'letter';
+            const intensity = options.intensity ?? 1;
+            const skipThrottle = options.skipThrottle || false;
+            const now = context.currentTime;
+            const growth = Math.min(1, Math.log10(Math.max(2, balls.length)) / Math.log10(MAX_BALLS));
+            const minGap = mode === 'letter'
+                ? 0.045 - growth * 0.027
+                : 0.13 - growth * 0.085;
+
+            if (!skipThrottle) {
+                if (mode === 'letter') {
+                    if (now - lastLetterPopTime < minGap) return;
+                    lastLetterPopTime = now;
+                } else {
+                    if (now - lastBattlePopTime < minGap) return;
+                    lastBattlePopTime = now;
+                }
+            }
+
+            const panValue = Math.max(-0.9, Math.min(0.9, (Math.random() - 0.5) * (0.5 + growth)));
+            const variants = [
+                { pitch: 155, filter: 520, q: 4.6, duration: 0.052, noiseRate: 0.72, wave: 'sine', toneMix: 0.38 },
+                { pitch: 190, filter: 680, q: 5.5, duration: 0.045, noiseRate: 0.82, wave: 'triangle', toneMix: 0.34 },
+                { pitch: 235, filter: 860, q: 7.0, duration: 0.036, noiseRate: 1.02, wave: 'sine', toneMix: 0.28 },
+                { pitch: 260, filter: 980, q: 7.5, duration: 0.032, noiseRate: 1.12, wave: 'triangle', toneMix: 0.24 },
+                { pitch: 310, filter: 1180, q: 8.4, duration: 0.030, noiseRate: 1.28, wave: 'square', toneMix: 0.14 },
+                { pitch: 340, filter: 1350, q: 9.0, duration: 0.026, noiseRate: 1.42, wave: 'sine', toneMix: 0.22 },
+                { pitch: 390, filter: 1550, q: 6.8, duration: 0.024, noiseRate: 1.56, wave: 'triangle', toneMix: 0.18 },
+                { pitch: 430, filter: 1780, q: 6.0, duration: 0.022, noiseRate: 1.72, wave: 'sine', toneMix: 0.16 },
+                { pitch: 520, filter: 2300, q: 5.2, duration: 0.019, noiseRate: 2.05, wave: 'square', toneMix: 0.08 }
+            ];
+            const variant = variants[Math.floor(Math.random() * variants.length)];
+            const doublePop = mode === 'letter' && !skipThrottle && Math.random() < 0.18;
+            const startOffset = doublePop ? Math.random() * 0.012 : 0;
+            const pitch = (variant.pitch + Math.random() * 70 + growth * 120) * (0.94 + Math.random() * 0.14);
+            const volume = Math.min(0.082, 0.032 + growth * 0.038) * intensity;
+            const duration = variant.duration + Math.random() * 0.012;
+
+            const noise = context.createBufferSource();
+            noise.buffer = popNoiseBuffer;
+            noise.playbackRate.value = variant.noiseRate + Math.random() * 0.28;
+
+            const filter = context.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = variant.filter + growth * 1300 + Math.random() * 420;
+            filter.Q.value = variant.q + Math.random() * 2.2;
+
+            const tone = context.createOscillator();
+            tone.type = variant.wave;
+            tone.frequency.setValueAtTime(pitch, now + startOffset);
+            tone.frequency.exponentialRampToValueAtTime(Math.max(85, pitch * 0.52), now + startOffset + duration);
+
+            const noiseGain = context.createGain();
+            const toneGain = context.createGain();
+            const master = context.createGain();
+            const panner = context.createStereoPanner ? context.createStereoPanner() : null;
+
+            noiseGain.gain.setValueAtTime(volume, now + startOffset);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + startOffset + duration);
+            toneGain.gain.setValueAtTime(volume * variant.toneMix, now + startOffset);
+            toneGain.gain.exponentialRampToValueAtTime(0.0001, now + startOffset + duration * 1.2);
+            master.gain.value = 0.82;
+
+            noise.connect(filter);
+            filter.connect(noiseGain);
+            tone.connect(toneGain);
+            noiseGain.connect(master);
+            toneGain.connect(master);
+
+            if (panner) {
+                panner.pan.value = panValue;
+                master.connect(panner);
+                panner.connect(context.destination);
+            } else {
+                master.connect(context.destination);
+            }
+
+            noise.start(now + startOffset);
+            tone.start(now + startOffset);
+            noise.stop(now + startOffset + duration);
+            tone.stop(now + startOffset + duration * 1.25);
+
+            if (doublePop) {
+                playPopcornPop({ mode, intensity: intensity * 0.45, skipThrottle: true });
+            }
+        }
+        
+        function autoChooseWinner() {
+            const colorCounts = countLetterColors();
+            const namedScores = [];
+            
+            getActiveColors().forEach(color => {
+                if (colorCounts[color] > 0 && playerNames[color] && playerNames[color].trim() !== '') {
+                    namedScores.push({ color, score: colorCounts[color] });
+                }
+            });
+            
+            if (namedScores.length === 0) {
+                gameEnded = true;
+                enableStartButton();
+                renderPlayerList();
+                return;
+            }
+            
+            const highScore = Math.max(...namedScores.map(player => player.score));
+            const leaders = namedScores.filter(player => player.score === highScore);
+
+            if (leaders.length > 1) {
+                gameEnded = true;
+                startTieBattle(leaders, highScore);
+                return;
+            }
+
+            const winner = leaders[0];
+            const winningColor = winner.color;
+            const winnerName = playerNames[winningColor];
+            const letterCount = winner.score;
+            
+            showWinner(winnerName, `${letterCount} letter${letterCount !== 1 ? 's' : ''} conquered`, winningColor);
+            gameEnded = true;
+            enableStartButton();
+        }
+
+        function startTieBattle(leaders, highScore) {
+            stopTieBattle();
+            ensureAudio();
+            resetBtn.disabled = true;
+            startBtn.disabled = true;
+            simTieBtn.disabled = true;
+            tieBattleOverlay.classList.add('visible');
+            tieBattleOverlay.setAttribute('aria-hidden', 'false');
+            tieBattleNames.innerHTML = '';
+
+            leaders.forEach(leader => {
+                const chip = document.createElement('span');
+                chip.className = 'tie-battle-chip';
+                chip.style.setProperty('--chip-color', leader.color);
+                chip.textContent = leader.name || playerNames[leader.color];
+                tieBattleNames.appendChild(chip);
+            });
+
+            const width = tieBattleCanvas.width;
+            const height = tieBattleCanvas.height;
+            const pegs = createTieBattlePegs(width, height);
+
+            tieBattleState = {
+                highScore,
+                pegs,
+                frame: 0,
+                finishFrame: null,
+                balls: leaders.map((leader, index) => {
+                    const name = leader.name || playerNames[leader.color] || `Player ${index + 1}`;
+                    const seed = deterministicHash(`${leader.color}:${name}:${highScore}:${index}`);
+                    const laneWidth = width / (leaders.length + 1);
+                    return {
+                        ...leader,
+                        name,
+                        x: laneWidth * (index + 1) + ((seed % 17) - 8) * 0.45,
+                        y: 34,
+                        vx: ((seed % 9) - 4) * 0.035,
+                        vy: 0,
+                        radius: 11,
+                        finishedAt: null
+                    };
+                })
+            };
+
+            tieBattleFrameId = requestAnimationFrame(runTieBattle);
+        }
+
+        function stopTieBattle() {
+            if (tieBattleFrameId !== null) {
+                cancelAnimationFrame(tieBattleFrameId);
+                tieBattleFrameId = null;
+            }
+
+            tieBattleState = null;
+            tieBattleOverlay.classList.remove('visible');
+            tieBattleOverlay.setAttribute('aria-hidden', 'true');
+            tieBattleNames.innerHTML = '';
+        }
+
+        function deterministicHash(value) {
+            let hash = 2166136261;
+            for (let i = 0; i < value.length; i++) {
+                hash ^= value.charCodeAt(i);
+                hash = Math.imul(hash, 16777619);
+            }
+            return hash >>> 0;
+        }
+
+        function createTieBattlePegs(width, height) {
+            const pegs = [];
+            const rows = 7;
+            const cols = 9;
+            const xGap = width / (cols + 1);
+            const yStart = 82;
+            const yGap = 38;
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const offset = row % 2 === 0 ? 0 : xGap / 2;
+                    const x = xGap * (col + 1) + offset;
+                    if (x > width - 36) continue;
+                    pegs.push({ x, y: yStart + row * yGap, radius: 7 });
+                }
+            }
+
+            return pegs;
+        }
+
+        function runTieBattle() {
+            if (!tieBattleState) return;
+
+            tieBattleState.frame++;
+            updateTieBattle();
+            drawTieBattle();
+
+            const finishedBalls = tieBattleState.balls.filter(ball => ball.finishedAt !== null);
+            if (finishedBalls.length > 0 && tieBattleState.finishFrame === null) {
+                tieBattleState.finishFrame = tieBattleState.frame;
+            }
+
+            if (
+                tieBattleState.finishFrame !== null &&
+                tieBattleState.frame - tieBattleState.finishFrame > 55
+            ) {
+                finishTieBattle();
+                return;
+            }
+
+            tieBattleFrameId = requestAnimationFrame(runTieBattle);
+        }
+
+        function updateTieBattle() {
+            const width = tieBattleCanvas.width;
+            const height = tieBattleCanvas.height;
+
+            tieBattleState.balls.forEach(ball => {
+                if (ball.finishedAt !== null) return;
+
+                ball.vy += 0.18;
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+
+                if (ball.x - ball.radius < 16) {
+                    ball.x = 16 + ball.radius;
+                    ball.vx = Math.abs(ball.vx) * 0.72;
+                }
+
+                if (ball.x + ball.radius > width - 16) {
+                    ball.x = width - 16 - ball.radius;
+                    ball.vx = -Math.abs(ball.vx) * 0.72;
+                }
+
+                tieBattleState.pegs.forEach(peg => {
+                    const dx = ball.x - peg.x;
+                    const dy = ball.y - peg.y;
+                    const minDistance = ball.radius + peg.radius;
+                    const distanceSquared = dx * dx + dy * dy;
+
+                    if (distanceSquared >= minDistance * minDistance || distanceSquared === 0) return;
+
+                    const distance = Math.sqrt(distanceSquared);
+                    const nx = dx / distance;
+                    const ny = dy / distance;
+                    const overlap = minDistance - distance;
+                    const impact = ball.vx * nx + ball.vy * ny;
+
+                    ball.x += nx * overlap;
+                    ball.y += ny * overlap;
+
+                    if (impact < 0) {
+                        ball.vx -= (1.58 * impact) * nx;
+                        ball.vy -= (1.58 * impact) * ny;
+                    }
+
+                    playPopcornPop({ mode: 'battle', intensity: 0.75 });
+                    ball.vx += nx * 0.06;
+                    ball.vy += ny * 0.025;
+                });
+
+                ball.vx *= 0.993;
+                ball.vy *= 0.995;
+
+                if (ball.y + ball.radius >= height - 24) {
+                    ball.y = height - 24 - ball.radius;
+                    ball.finishedAt = tieBattleState.frame;
+                    playPopcornPop({ mode: 'battle', intensity: 1.15 });
+                }
+            });
+        }
+
+        function drawTieBattle() {
+            const width = tieBattleCanvas.width;
+            const height = tieBattleCanvas.height;
+
+            tieBattleCtx.clearRect(0, 0, width, height);
+            tieBattleCtx.fillStyle = '#020202';
+            tieBattleCtx.fillRect(0, 0, width, height);
+
+            tieBattleCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            tieBattleCtx.lineWidth = 3;
+            tieBattleCtx.beginPath();
+            tieBattleCtx.moveTo(16, 24);
+            tieBattleCtx.lineTo(16, height - 24);
+            tieBattleCtx.lineTo(width - 16, height - 24);
+            tieBattleCtx.lineTo(width - 16, 24);
+            tieBattleCtx.stroke();
+
+            tieBattleState.pegs.forEach(peg => {
+                tieBattleCtx.fillStyle = 'rgba(255, 255, 255, 0.82)';
+                tieBattleCtx.shadowColor = 'white';
+                tieBattleCtx.shadowBlur = 8;
+                tieBattleCtx.beginPath();
+                tieBattleCtx.arc(peg.x, peg.y, peg.radius, 0, Math.PI * 2);
+                tieBattleCtx.fill();
+            });
+
+            tieBattleCtx.shadowBlur = 0;
+            tieBattleCtx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+            tieBattleCtx.font = '700 18px Arial, sans-serif';
+            tieBattleCtx.textAlign = 'center';
+            tieBattleCtx.fillText('First ball down wins the tie', width / 2, height - 42);
+
+            tieBattleState.balls.forEach(ball => {
+                tieBattleCtx.shadowColor = ball.color;
+                tieBattleCtx.shadowBlur = 18;
+                tieBattleCtx.fillStyle = ball.color;
+                tieBattleCtx.beginPath();
+                tieBattleCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                tieBattleCtx.fill();
+
+                tieBattleCtx.shadowBlur = 0;
+                tieBattleCtx.fillStyle = 'white';
+                tieBattleCtx.font = '700 12px Arial, sans-serif';
+                tieBattleCtx.fillText(ball.name.slice(0, 8), ball.x, Math.max(18, ball.y - 18));
+            });
+        }
+
+        function finishTieBattle() {
+            const winner = [...tieBattleState.balls]
+                .sort((a, b) => (
+                    (a.finishedAt ?? Infinity) - (b.finishedAt ?? Infinity) ||
+                    b.y - a.y ||
+                    deterministicHash(`${a.color}:${a.name}`) - deterministicHash(`${b.color}:${b.name}`)
+                ))[0];
+
+            const letterCount = winner.score;
+            stopTieBattle();
+            showWinner(winner.name, `${letterCount} letter${letterCount !== 1 ? 's' : ''} conquered`, winner.color);
+            enableStartButton();
+        }
+
+        function simulateTieBattle(event) {
+            if (gameStarted && !gameEnded) return;
+
+            ensureAudio();
+            stopTieBattle();
+            hideWinner();
+            gameStarted = false;
+            gameEnded = true;
+            finaleStartTime = null;
+
+            const demoCount = event && event.shiftKey ? 3 : 2;
+            const demoNames = ['Demo One', 'Demo Two', 'Demo Three'];
+            const demoColors = ['#ff0080', '#00ff00', '#0080ff'];
+            const demoScore = 12;
+            const leaders = demoColors.slice(0, demoCount).map((color, index) => ({
+                color,
+                name: demoNames[index],
+                score: demoScore
+            }));
+
+            startTieBattle(leaders, demoScore);
+        }
+        
+        function enableStartButton() {
+            startBtn.textContent = 'Start';
+            startBtn.disabled = false;
+            startBtn.style.opacity = '1';
+            startBtn.style.cursor = 'pointer';
+            resetBtn.disabled = false;
+            simTieBtn.disabled = false;
+        }
+        
+        function checkGameEnd(timestamp) {
+            if (!gameStarted || gameEnded || balls.length < MAX_BALLS) return;
+
+            const allBallsInBottomZone = balls.every(ball => ball.isWithinFinaleBottomZone());
+            if (!allBallsInBottomZone) {
+                finaleStartTime = null;
+                return;
+            }
+
+            if (finaleStartTime === null) finaleStartTime = timestamp;
+            if (timestamp - finaleStartTime >= FINALE_SETTLE_MS) autoChooseWinner();
+        }
+        
+        function showWinner(name, scoreText, color) {
+            const overlay = document.getElementById('winnerOverlay');
+            const winnerName = document.getElementById('winnerName');
+            const winnerScore = document.getElementById('winnerScore');
+
+            winnerName.textContent = name;
+            winnerScore.textContent = scoreText;
+            overlay.style.setProperty('--winner-color', color);
+            overlay.classList.add('visible');
+            overlay.setAttribute('aria-hidden', 'false');
+            launchWinnerConfetti();
+        }
+        
+        function hideWinner() {
+            const overlay = document.getElementById('winnerOverlay');
+            overlay.classList.remove('visible');
+            overlay.setAttribute('aria-hidden', 'true');
+            document.getElementById('winnerConfetti').innerHTML = '';
+        }
+
+        function launchWinnerConfetti() {
+            const confetti = document.getElementById('winnerConfetti');
+            const sourceBalls = balls.length ? balls : getActiveColors().map(color => ({ color, radius: 8 }));
+            const fragment = document.createDocumentFragment();
+            confetti.innerHTML = '';
+
+            for (let i = 0; i < 140; i++) {
+                const source = sourceBalls[Math.floor(Math.random() * sourceBalls.length)];
+                const particle = document.createElement('span');
+                particle.className = 'confetti-ball';
+                particle.style.setProperty('--x', `${Math.random() * 100}%`);
+                particle.style.setProperty('--size', `${Math.max(5, Math.min(18, source.radius))}px`);
+                particle.style.setProperty('--color', source.color);
+                particle.style.setProperty('--drift', `${(Math.random() - 0.5) * 260}px`);
+                particle.style.setProperty('--duration', `${2.6 + Math.random() * 2.8}s`);
+                particle.style.setProperty('--delay', `${-Math.random() * 5}s`);
+                fragment.appendChild(particle);
+            }
+            confetti.appendChild(fragment);
+        }
+        
+        function updateTitleColor() {
+            const titleElement = document.getElementById('title');
+            const text = "Just Bouncy Balls";
+            let coloredText = '';
+            
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const color = letterColors[i] || defaultLetterColor;
+                
+                if (char === ' ') {
+                    coloredText += ' ';
+                } else {
+                    coloredText += `<span style="color: ${color}; text-shadow: 0 0 20px ${color}, 0 0 40px ${color}, 0 0 60px ${color};">${char}</span>`;
+                }
+            }
+            
+            titleElement.innerHTML = coloredText;
+            updateScores();
+        }
+        
+        function updateBallCount() {
+            ballCountElement.textContent = balls.length;
+            updateFinaleSwoosh();
+        }
+        
+        // Spatial partitioning for better collision performance
+        const GRID_SIZE = 100;
+        let spatialGrid = {};
+        
+        function getGridKey(x, y) {
+            const gridX = Math.floor(x / GRID_SIZE);
+            const gridY = Math.floor(y / GRID_SIZE);
+            return `${gridX},${gridY}`;
+        }
+        
+        function updateSpatialGrid() {
+            spatialGrid = {};
+            balls.forEach((ball, index) => {
+                const key = getGridKey(ball.x, ball.y);
+                if (!spatialGrid[key]) spatialGrid[key] = [];
+                spatialGrid[key].push(index);
+            });
+        }
+        
+        function checkCollisions() {
+            updateSpatialGrid();
+            
+            // Only check collisions within same grid cells and adjacent cells
+            Object.keys(spatialGrid).forEach(key => {
+                const ballIndices = spatialGrid[key];
+                const [gridX, gridY] = key.split(',').map(Number);
+                
+                // Get adjacent cells
+                const adjacentCells = [];
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        const adjacentKey = `${gridX + dx},${gridY + dy}`;
+                        if (spatialGrid[adjacentKey]) {
+                            adjacentCells.push(...spatialGrid[adjacentKey]);
+                        }
+                    }
+                }
+                
+                // Check collisions within this cell and adjacent cells
+                ballIndices.forEach(i => {
+                    adjacentCells.forEach(j => {
+                        if (i >= j) return; // Avoid duplicate checks
+                        
+                        const ball1 = balls[i];
+                        const ball2 = balls[j];
+                        
+                        if (!ball1 || !ball2 || ball1.hasCollided || ball2.hasCollided) return;
+                        
+                        const dx = ball2.x - ball1.x;
+                        const dy = ball2.y - ball1.y;
+                        const distanceSquared = dx * dx + dy * dy;
+                        const minDistance = ball1.radius + ball2.radius;
+                        
+                        if (distanceSquared < minDistance * minDistance && distanceSquared > 0) {
+                            const distance = Math.sqrt(distanceSquared);
+                            
+                            // Markeer beide ballen als gebotst
+                            ball1.hasCollided = true;
+                            ball2.hasCollided = true;
+                            
+                            // Simplified collision response for performance
+                            const angle = Math.atan2(dy, dx);
+                            const sin = Math.sin(angle);
+                            const cos = Math.cos(angle);
+                            
+                            // Roteer snelheden
+                            const vx1 = ball1.vx * cos + ball1.vy * sin;
+                            const vy1 = ball1.vy * cos - ball1.vx * sin;
+                            const vx2 = ball2.vx * cos + ball2.vy * sin;
+                            const vy2 = ball2.vy * cos - ball2.vx * sin;
+                            
+                            // Elastische botsing
+                            const finalVx1 = ((ball1.radius - ball2.radius) * vx1 + 2 * ball2.radius * vx2) / (ball1.radius + ball2.radius);
+                            const finalVx2 = ((ball2.radius - ball1.radius) * vx2 + 2 * ball1.radius * vx1) / (ball1.radius + ball2.radius);
+                            
+                            // Simple collision response without chaos multipliers
+                            ball1.vx = (finalVx1 * cos - vy1 * sin) * 0.9;
+                            ball1.vy = (vy1 * cos + finalVx1 * sin) * 0.9;
+                            ball2.vx = (finalVx2 * cos - vy2 * sin) * 0.9;
+                            ball2.vy = (vy2 * cos + finalVx2 * sin) * 0.9;
+                            
+                            // Ballen uit elkaar duwen
+                            const overlap = minDistance - distance;
+                            const separationX = (dx / distance) * overlap * 0.5;
+                            const separationY = (dy / distance) * overlap * 0.5;
+                            
+                            ball1.x -= separationX;
+                            ball1.y -= separationY;
+                            ball2.x += separationX;
+                            ball2.y += separationY;
+                            
+                            // Ballen kleiner maken
+                            ball1.shrink();
+                            ball2.shrink();
+                            
+                            // Spawn new ball on every collision during the game
+                            if (gameStarted && balls.length < MAX_BALLS) {
+                                const newX = Math.random() * (canvas.width - 100) + 50;
+                                const newY = Math.random() * (canvas.height - 100) + 50;
+                                // Random color for fair chances
+                                const activeColors = getActiveColors();
+                                const randomColor = activeColors[Math.floor(Math.random() * activeColors.length)];
+                                const newBall = new Ball(newX, newY, Math.random() * 8 + 4, randomColor);
+                                balls.push(newBall);
+                                updateBallCount();
+                            }
+                            
+                            // Simplified visual effect
+                            ball1.glowIntensity = 1.5;
+                            ball2.glowIntensity = 1.5;
+                        }
+                    });
+                });
+            });
+        }
+        
+        // Mouse events
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+            
+            // Zoek de bal die geklikt is (van boven naar beneden)
+            for (let i = balls.length - 1; i >= 0; i--) {
+                if (balls[i].isPointInside(mouseX, mouseY)) {
+                    draggedBall = balls[i];
+                    draggedBall.isDragging = true;
+                    draggedBall.dragOffsetX = mouseX - draggedBall.x;
+                    draggedBall.dragOffsetY = mouseY - draggedBall.y;
+                    lastMouseX = mouseX;
+                    lastMouseY = mouseY;
+                    break;
+                }
+            }
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+            
+            if (draggedBall) {
+                draggedBall.x = mouseX - draggedBall.dragOffsetX;
+                draggedBall.y = mouseY - draggedBall.dragOffsetY;
+                
+                // Binnen canvas grenzen houden
+                draggedBall.x = Math.max(draggedBall.radius, Math.min(canvas.width - draggedBall.radius, draggedBall.x));
+                draggedBall.y = Math.max(draggedBall.radius, Math.min(canvas.height - draggedBall.radius, draggedBall.y));
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            if (draggedBall) {
+                // Snelheid geven gebaseerd op muisbeweging
+                draggedBall.vx = (mouseX - lastMouseX) * 0.15;
+                draggedBall.vy = (mouseY - lastMouseY) * 0.15;
+                draggedBall.isDragging = false;
+                draggedBall = null;
+            }
+        });
+        
+        // Touch events voor mobiel
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            mouseX = touch.clientX - rect.left;
+            mouseY = touch.clientY - rect.top;
+            
+            for (let i = balls.length - 1; i >= 0; i--) {
+                if (balls[i].isPointInside(mouseX, mouseY)) {
+                    draggedBall = balls[i];
+                    draggedBall.isDragging = true;
+                    draggedBall.dragOffsetX = mouseX - draggedBall.x;
+                    draggedBall.dragOffsetY = mouseY - draggedBall.y;
+                    lastMouseX = mouseX;
+                    lastMouseY = mouseY;
+                    break;
+                }
+            }
+        });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (draggedBall) {
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                mouseX = touch.clientX - rect.left;
+                mouseY = touch.clientY - rect.top;
+                
+                draggedBall.x = mouseX - draggedBall.dragOffsetX;
+                draggedBall.y = mouseY - draggedBall.dragOffsetY;
+                
+                draggedBall.x = Math.max(draggedBall.radius, Math.min(canvas.width - draggedBall.radius, draggedBall.x));
+                draggedBall.y = Math.max(draggedBall.radius, Math.min(canvas.height - draggedBall.radius, draggedBall.y));
+            }
+        });
+        
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (draggedBall) {
+                draggedBall.vx = (mouseX - lastMouseX) * 0.15;
+                draggedBall.vy = (mouseY - lastMouseY) * 0.15;
+                draggedBall.isDragging = false;
+                draggedBall = null;
+            }
+        });
+        
+        // Button events
+        backgroundMusic.addEventListener('ended', playNextBackgroundTrack);
+        window.addEventListener('pointerdown', startBackgroundMusic, { once: true });
+        window.addEventListener('keydown', startBackgroundMusic, { once: true });
+        prevTrackBtn.addEventListener('click', playPreviousBackgroundTrack);
+        nextTrackBtn.addEventListener('click', playNextBackgroundTrack);
+        startBtn.addEventListener('click', startGame);
+        resetBtn.addEventListener('click', resetGame);
+        simTieBtn.addEventListener('click', simulateTieBattle);
+        winnerResetBtn.addEventListener('click', resetGame);
+        addPlayerBtn.addEventListener('click', addPlayer);
+        removePlayerBtn.addEventListener('click', removePlayer);
+        
+        // Game loop
+        function animate(timestamp) {
+            // Canvas leegmaken met zwarte achtergrond
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Ballen updaten en tekenen
+            balls.forEach(ball => {
+                ball.update();
+                ball.draw();
+            });
+            
+            // Botsingen controleren
+            checkCollisions();
+            
+            // Check if game should end
+            checkGameEnd(timestamp);
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Start het spel
+        updateTitleColor(); // Initialize title colors
+        renderPlayerList();
+        initGame();
+        updateMusicTitle();
+        startBackgroundMusic();
+        animate();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b11e43e5ade690',t:'MTc1NDUxMDQwMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
