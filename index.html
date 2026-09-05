@@ -117,21 +117,6 @@
                 inset -12px -14px 18px rgba(0, 0, 0, 0.55);
         }
 
-        #simTieBtn.ball-btn {
-            background: radial-gradient(circle at 38% 32%, #7dffff 0 16%, #00ffff 42%, #007a7a 78%, #001414 100%);
-            box-shadow:
-                0 0 16px #00ffff,
-                0 0 32px rgba(0, 255, 255, 0.65),
-                inset -12px -14px 18px rgba(0, 0, 0, 0.55);
-        }
-
-        #simTieBtn.ball-btn:hover:not(:disabled) {
-            box-shadow:
-                0 0 20px #00ffff,
-                0 0 46px rgba(0, 255, 255, 0.85),
-                inset -12px -14px 18px rgba(0, 0, 0, 0.55);
-        }
-        
         #info {
             position: absolute;
             top: 80px;
@@ -560,7 +545,6 @@
     <div id="controls">
         <button id="startBtn" class="btn ball-btn">Start</button>
         <button id="resetBtn" class="btn ball-btn">Reset</button>
-        <button id="simTieBtn" class="btn ball-btn" type="button" title="Sim tie battle. Shift+click voor 3 spelers.">Sim</button>
     </div>
     
     <div id="nameInputArea">
@@ -610,7 +594,6 @@
         const ctx = canvas.getContext('2d');
         const startBtn = document.getElementById('startBtn');
         const resetBtn = document.getElementById('resetBtn');
-        const simTieBtn = document.getElementById('simTieBtn');
         const addPlayerBtn = document.getElementById('addPlayerBtn');
         const removePlayerBtn = document.getElementById('removePlayerBtn');
         const winnerResetBtn = document.getElementById('winnerResetBtn');
@@ -1046,7 +1029,6 @@
             startBtn.style.opacity = '0.5';
             startBtn.style.cursor = 'not-allowed';
             resetBtn.disabled = true;
-            simTieBtn.disabled = true;
             renderPlayerList();
             
             // Start with one ball for every visible player.
@@ -1083,7 +1065,6 @@
             
             enableStartButton();
             resetBtn.disabled = false;
-            simTieBtn.disabled = false;
             
             updateTitleColor();
             hideWinner();
@@ -1637,7 +1618,6 @@
             ensureAudio();
             resetBtn.disabled = true;
             startBtn.disabled = true;
-            simTieBtn.disabled = true;
             tieBattleOverlay.classList.add('visible');
             tieBattleOverlay.setAttribute('aria-hidden', 'false');
             tieBattleNames.innerHTML = '';
@@ -1863,36 +1843,12 @@
             enableStartButton();
         }
 
-        function simulateTieBattle(event) {
-            if (gameStarted && !gameEnded) return;
-
-            ensureAudio();
-            stopTieBattle();
-            hideWinner();
-            gameStarted = false;
-            gameEnded = true;
-            finaleStartTime = null;
-
-            const demoCount = event && event.shiftKey ? 3 : 2;
-            const demoNames = ['Demo One', 'Demo Two', 'Demo Three'];
-            const demoColors = ['#ff0080', '#00ff00', '#0080ff'];
-            const demoScore = 12;
-            const leaders = demoColors.slice(0, demoCount).map((color, index) => ({
-                color,
-                name: demoNames[index],
-                score: demoScore
-            }));
-
-            startTieBattle(leaders, demoScore);
-        }
-        
         function enableStartButton() {
             startBtn.textContent = 'Start';
             startBtn.disabled = false;
             startBtn.style.opacity = '1';
             startBtn.style.cursor = 'pointer';
             resetBtn.disabled = false;
-            simTieBtn.disabled = false;
         }
         
         function checkGameEnd(timestamp) {
@@ -2245,7 +2201,6 @@
         nextTrackBtn.addEventListener('click', playNextBackgroundTrack);
         startBtn.addEventListener('click', startGame);
         resetBtn.addEventListener('click', resetGame);
-        simTieBtn.addEventListener('click', simulateTieBattle);
         winnerResetBtn.addEventListener('click', resetGame);
         addPlayerBtn.addEventListener('click', addPlayer);
         removePlayerBtn.addEventListener('click', removePlayer);
