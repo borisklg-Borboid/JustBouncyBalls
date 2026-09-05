@@ -1913,7 +1913,7 @@
             const doublePop = mode === 'letter' && !skipThrottle && Math.random() < 0.18;
             const startOffset = doublePop ? Math.random() * 0.012 : 0;
             const pitch = (variant.pitch + Math.random() * 70 + growth * 120) * (0.94 + Math.random() * 0.14);
-            const volume = Math.min(0.082, 0.032 + growth * 0.038) * intensity;
+            const volume = Math.min(0.0902, 0.0352 + growth * 0.0418) * intensity;
             const duration = variant.duration + Math.random() * 0.012;
 
             const noise = context.createBufferSource();
