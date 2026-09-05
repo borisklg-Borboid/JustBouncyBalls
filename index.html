@@ -156,7 +156,7 @@
 
         #musicPlayer {
             position: absolute;
-            top: 18px;
+            top: 42px;
             right: 20px;
             z-index: 100;
             display: flex;
@@ -167,6 +167,22 @@
             background: rgba(0, 0, 0, 0.32);
             opacity: 0.72;
             transition: opacity 0.18s ease;
+        }
+
+        #totalPlays {
+            position: absolute;
+            top: 16px;
+            right: 24px;
+            z-index: 101;
+            color: #00ffff;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-align: right;
+            text-shadow: 0 0 8px #00ffff;
+            opacity: 0.78;
+            pointer-events: none;
         }
 
         #musicPlayer:hover {
@@ -557,6 +573,7 @@
 
     <div id="title">Just Bouncy Balls</div>
     <div id="ballCount">Balls: <span id="count">1</span></div>
+    <div id="totalPlays">Total plays: <span id="totalPlaysCount">...</span></div>
     <div id="musicPlayer" aria-label="Playlist controls">
         <button id="prevTrackBtn" class="music-btn" type="button" aria-label="Previous track"><<</button>
         <div id="musicTitleWindow" aria-live="polite">
@@ -598,6 +615,7 @@
         const removePlayerBtn = document.getElementById('removePlayerBtn');
         const winnerResetBtn = document.getElementById('winnerResetBtn');
         const ballCountElement = document.getElementById('count');
+        const totalPlaysElement = document.getElementById('totalPlaysCount');
         const tieBattleOverlay = document.getElementById('tieBattleOverlay');
         const tieBattleCanvas = document.getElementById('tieBattleCanvas');
         const tieBattleCtx = tieBattleCanvas.getContext('2d');
@@ -626,6 +644,8 @@
         const MUSIC_DUCKED_VOLUME = 0.035;
         const MAX_BALLS = 2000;
         const SWOOSH_START_BALLS = 100;
+        const SUPABASE_URL = 'https://jcjnowvvfzcddfjkprbv.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_1ezvUiSnLB-_tbi3qsYsnQ_gsE05-9F';
         const FINALE_SETTLE_MS = 1000;
         const FINALE_BOTTOM_BALL_HEIGHTS = 10;
         const musicPlaylist = [
@@ -1012,6 +1032,7 @@
             }
             ensureAudio();
             startBackgroundMusic();
+            incrementTotalPlays();
             
             gameStarted = true;
             startBtn.textContent = 'Busy';
@@ -1946,6 +1967,61 @@
             ballCountElement.textContent = balls.length;
             updateFinaleSwoosh();
         }
+
+        function getSupabaseHeaders() {
+            return {
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        function showTotalPlays(value) {
+            if (!totalPlaysElement) return;
+
+            totalPlaysElement.textContent = Number.isFinite(value) ? value.toLocaleString('en-US') : '...';
+        }
+
+        async function fetchTotalPlays() {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/site_stats?key=eq.total_plays&select=value`, {
+                headers: getSupabaseHeaders()
+            });
+
+            if (!response.ok) throw new Error(`Could not fetch total plays: ${response.status}`);
+
+            const rows = await response.json();
+            return Number(rows?.[0]?.value ?? 0);
+        }
+
+        async function updateTotalPlaysDisplay() {
+            try {
+                showTotalPlays(await fetchTotalPlays());
+            } catch (error) {
+                console.warn(error);
+            }
+        }
+
+        async function incrementTotalPlays() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_total_plays`, {
+                    method: 'POST',
+                    headers: getSupabaseHeaders(),
+                    body: '{}'
+                });
+
+                if (!response.ok) throw new Error(`Could not increment total plays: ${response.status}`);
+
+                const newTotal = Number(await response.json());
+                if (Number.isFinite(newTotal)) {
+                    showTotalPlays(newTotal);
+                } else {
+                    updateTotalPlaysDisplay();
+                }
+            } catch (error) {
+                console.warn(error);
+                updateTotalPlaysDisplay();
+            }
+        }
         
         // Spatial partitioning for better collision performance
         const GRID_SIZE = 100;
@@ -2193,6 +2269,7 @@
         updateTitleColor(); // Initialize title colors
         renderPlayerList();
         initGame();
+        updateTotalPlaysDisplay();
         updateMusicTitle();
         startBackgroundMusic();
         animate();
