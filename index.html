@@ -935,6 +935,7 @@
         const MIN_PLAYERS = 1;
         const STARTING_PLAYERS = 5;
         const MAX_PLAYERS = 12;
+        const MOBILE_BALL_SCALE = 0.5;
         let activePlayerCount = STARTING_PLAYERS;
         let selectedPlayerColors = neonColors.slice(0, STARTING_PLAYERS);
         
@@ -947,7 +948,8 @@
             constructor(x, y, radius = null, color = null) {
                 this.x = x;
                 this.y = y;
-                this.radius = radius || Math.random() * 12 + 8;
+                const ballScale = isMobileOrTablet() ? MOBILE_BALL_SCALE : 1;
+                this.radius = (radius || Math.random() * 12 + 8) * ballScale;
                 const availableColors = getActiveColors();
                 this.color = color || availableColors[Math.floor(Math.random() * availableColors.length)];
                 this.vx = (Math.random() - 0.5) * 4;
@@ -955,7 +957,7 @@
                 this.isDragging = false;
                 this.dragOffsetX = 0;
                 this.dragOffsetY = 0;
-                this.minRadius = 6;
+                this.minRadius = 6 * ballScale;
                 this.glowIntensity = Math.random() * 0.5 + 0.5;
                 this.hasCollided = false; // Voorkomt meerdere botsingen per frame
             }
