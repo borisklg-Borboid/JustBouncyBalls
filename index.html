@@ -776,7 +776,7 @@
         <div class="rotate-card">
             <div class="rotate-icon">↻</div>
             <div class="rotate-title">Turn sideways</div>
-            <div class="rotate-copy">Just Bouncy Balls plays best in landscape. Tap Start and rotate your device.</div>
+            <div class="rotate-copy">Just Bouncy Balls plays best in landscape. Rotate your device for the full game view.</div>
         </div>
     </div>
     
@@ -891,14 +891,6 @@
 
         async function requestLandscapeMode() {
             if (!isMobileOrTablet()) return;
-
-            try {
-                if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-                    await document.documentElement.requestFullscreen();
-                }
-            } catch (error) {
-                // Fullscreen is optional; browsers may deny it.
-            }
 
             try {
                 if (screen.orientation && screen.orientation.lock) {
