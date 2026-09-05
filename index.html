@@ -479,6 +479,23 @@
             pointer-events: none;
         }
 
+        #finaleBlast {
+            position: fixed;
+            inset: 0;
+            z-index: 120;
+            pointer-events: none;
+            opacity: 0;
+            background:
+                radial-gradient(circle at center, rgba(255, 255, 255, 0.72) 0 3%, rgba(0, 255, 255, 0.42) 4% 10%, rgba(255, 0, 128, 0.25) 11% 19%, transparent 34%),
+                radial-gradient(circle at center, transparent 0 18%, rgba(255, 255, 255, 0.34) 20%, rgba(0, 255, 0, 0.22) 24%, transparent 42%);
+            mix-blend-mode: screen;
+            transform: scale(0.22);
+        }
+
+        #finaleBlast.active {
+            animation: finale-blast-pop 0.62s cubic-bezier(.08, .95, .22, 1) forwards;
+        }
+
         .confetti-ball {
             position: absolute;
             top: -10vh;
@@ -500,6 +517,25 @@
             0% { transform: translate3d(0, -12vh, 0) scale(0.5); opacity: 0; }
             10% { opacity: 1; }
             100% { transform: translate3d(var(--drift), 125vh, 0) scale(1.15); opacity: 0.85; }
+        }
+
+        @keyframes finale-blast-pop {
+            0% { opacity: 0; transform: scale(0.18); filter: blur(8px); }
+            12% { opacity: 1; }
+            100% { opacity: 0; transform: scale(2.8); filter: blur(0); }
+        }
+
+        body.finale-shake #canvas {
+            animation: finale-screen-shake 0.38s linear;
+        }
+
+        @keyframes finale-screen-shake {
+            0%, 100% { transform: translate(0, 0); }
+            15% { transform: translate(-5px, 3px); }
+            30% { transform: translate(6px, -4px); }
+            45% { transform: translate(-4px, -2px); }
+            60% { transform: translate(4px, 3px); }
+            75% { transform: translate(-2px, 2px); }
         }
         
         #title {
@@ -762,6 +798,7 @@
     </div>
 
     <div id="title">Just Bouncy Balls</div>
+    <div id="finaleBlast" aria-hidden="true"></div>
     <div id="ballCount">Balls: <span id="count">1</span></div>
     <div id="totalPlays">Total plays: <span id="totalPlaysCount">...</span></div>
     <div id="musicPlayer" aria-label="Playlist controls">
@@ -821,6 +858,7 @@
         const nextTrackBtn = document.getElementById('nextTrackBtn');
         const musicTitle = document.getElementById('musicTitle');
         const rotateDeviceOverlay = document.getElementById('rotateDeviceOverlay');
+        const finaleBlastElement = document.getElementById('finaleBlast');
         
         // Game state variables
         let gameStarted = false;
@@ -1700,7 +1738,41 @@
             }
 
             playFinaleWhip(context, now);
+            triggerFinaleBlast();
+            blastFinaleBalls();
             restoreBackgroundMusic(1100);
+        }
+
+        function triggerFinaleBlast() {
+            if (!finaleBlastElement) return;
+
+            finaleBlastElement.classList.remove('active');
+            document.body.classList.remove('finale-shake');
+            void finaleBlastElement.offsetWidth;
+            finaleBlastElement.classList.add('active');
+            document.body.classList.add('finale-shake');
+
+            setTimeout(() => {
+                finaleBlastElement.classList.remove('active');
+                document.body.classList.remove('finale-shake');
+            }, 700);
+        }
+
+        function blastFinaleBalls() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const force = isMobileOrTablet() ? 1.15 : 2.35;
+
+            balls.forEach(ball => {
+                const dx = ball.x - centerX;
+                const dy = ball.y - centerY;
+                const distance = Math.max(80, Math.sqrt(dx * dx + dy * dy));
+                const edgeBoost = 1 + Math.min(1.2, distance / Math.max(canvas.width, canvas.height));
+
+                ball.vx += (dx / distance) * force * edgeBoost + (Math.random() - 0.5) * force;
+                ball.vy += (dy / distance) * force * edgeBoost - force * 0.55 + (Math.random() - 0.5) * force;
+                ball.glowIntensity = 2.2;
+            });
         }
 
         function playFinaleWhip(context, now) {
