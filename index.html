@@ -819,7 +819,7 @@
     </div>
     
     <canvas id="canvas"></canvas>
-    <audio id="backgroundMusic" preload="auto"></audio>
+    <audio id="backgroundMusic" preload="auto" autoplay playsinline></audio>
 
     <div id="tieBattleOverlay" aria-hidden="true">
         <div class="tie-battle-card">
@@ -1528,6 +1528,9 @@
             if (!backgroundMusic || musicPlaylist.length === 0) return;
             if (musicStarted && !backgroundMusic.paused) return;
 
+            backgroundMusic.autoplay = true;
+            backgroundMusic.muted = false;
+            backgroundMusic.playsInline = true;
             backgroundMusic.volume = MUSIC_BASE_VOLUME;
             backgroundMusic.loop = false;
             if (!backgroundMusic.src) {
@@ -1543,11 +1546,27 @@
                 });
         }
 
+        function primeBackgroundMusic() {
+            if (!backgroundMusic || musicPlaylist.length === 0) return;
+
+            backgroundMusic.autoplay = true;
+            backgroundMusic.muted = false;
+            backgroundMusic.playsInline = true;
+
+            if (!backgroundMusic.src) {
+                setBackgroundTrack(currentMusicTrackIndex, false);
+            }
+
+            backgroundMusic.load();
+            startBackgroundMusic();
+        }
+
         function setBackgroundTrack(index, shouldPlay = musicStarted) {
             if (!backgroundMusic || musicPlaylist.length === 0) return;
 
             currentMusicTrackIndex = (index + musicPlaylist.length) % musicPlaylist.length;
             backgroundMusic.src = musicPlaylist[currentMusicTrackIndex];
+            backgroundMusic.load();
             updateMusicTitle();
 
             if (shouldPlay) {
@@ -2584,8 +2603,12 @@
         
         // Button events
         backgroundMusic.addEventListener('ended', playNextBackgroundTrack);
+        backgroundMusic.addEventListener('canplay', startBackgroundMusic, { once: true });
         window.addEventListener('pointerdown', startBackgroundMusic, { once: true });
         window.addEventListener('keydown', startBackgroundMusic, { once: true });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && !musicStarted) startBackgroundMusic();
+        });
         prevTrackBtn.addEventListener('click', playPreviousBackgroundTrack);
         nextTrackBtn.addEventListener('click', playNextBackgroundTrack);
         startBtn.addEventListener('click', startGame);
@@ -2622,7 +2645,7 @@
         updateTotalPlaysDisplay();
         chooseRandomInitialTrack();
         updateMusicTitle();
-        startBackgroundMusic();
+        primeBackgroundMusic();
         animate();
     </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b11e43e5ade690',t:'MTc1NDUxMDQwMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
