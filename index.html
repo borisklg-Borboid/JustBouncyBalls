@@ -872,7 +872,7 @@
 
         function isMobileOrTablet() {
             return window.matchMedia('(pointer: coarse)').matches
-                || Math.min(window.innerWidth, window.innerHeight) <= 900
+                || window.matchMedia('(hover: none)').matches
                 || /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent);
         }
 
