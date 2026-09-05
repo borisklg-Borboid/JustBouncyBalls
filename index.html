@@ -755,8 +755,8 @@
     <div id="nameInputArea">
         <div id="colorList"></div>
         <div id="playerControls">
-            <button id="removePlayerBtn" class="player-count-btn" type="button" aria-label="Speler verwijderen" title="Speler verwijderen">-</button>
-            <button id="addPlayerBtn" class="player-count-btn" type="button" aria-label="Speler toevoegen" title="Speler toevoegen">+</button>
+            <button id="removePlayerBtn" class="player-count-btn" type="button" aria-label="Remove player" title="Remove player">-</button>
+            <button id="addPlayerBtn" class="player-count-btn" type="button" aria-label="Add player" title="Add player">+</button>
         </div>
     </div>
 
@@ -864,7 +864,7 @@
             currentMusicTrackIndex = Math.floor(Math.random() * musicPlaylist.length);
         }
         
-        // Canvas grootte instellen
+        // Set canvas size
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -970,16 +970,16 @@
             
             update() {
                 if (!this.isDragging) {
-                    // Zwaartekracht
+                    // Gravity
                     this.vy += 0.15;
                     
-                    // Positie updaten
+                    // Update position
                     this.x += this.vx;
                     this.y += this.vy;
                     
                     // Keep bouncing consistent for better ball behavior
                     
-                    // Stuiter van de randen met betere boundary handling
+                    // Bounce from the edges with better boundary handling
                     if (this.x + this.radius > canvas.width) {
                         this.x = canvas.width - this.radius;
                         this.vx = -Math.abs(this.vx) * 0.8; // Ensure bounce away from wall
@@ -1382,8 +1382,8 @@
                 colorBox.type = 'button';
                 colorBox.className = 'color-box';
                 colorBox.style.color = color;
-                colorBox.setAttribute('aria-label', `Kleur wijzigen voor speler ${index + 1}`);
-                colorBox.title = 'Kleur wijzigen';
+                colorBox.setAttribute('aria-label', `Change color for player ${index + 1}`);
+                colorBox.title = 'Change color';
                 colorBox.tabIndex = -1;
                 colorBox.disabled = gameStarted && !gameEnded;
                 colorBox.addEventListener('click', () => cyclePlayerColor(index));
@@ -1391,7 +1391,7 @@
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.className = 'name-input';
-                input.placeholder = `Speler ${index + 1}`;
+                input.placeholder = `Player ${index + 1}`;
                 input.value = playerNames[color] || '';
                 input.maxLength = 14;
                 input.disabled = gameStarted && !gameEnded;
@@ -1411,11 +1411,11 @@
             removePlayerBtn.disabled = activePlayerCount <= MIN_PLAYERS || roundInProgress;
             addPlayerBtn.disabled = activePlayerCount >= MAX_PLAYERS || roundInProgress;
             removePlayerBtn.title = activePlayerCount <= MIN_PLAYERS
-                ? 'Minimaal 1 speler'
-                : 'Speler verwijderen';
+                ? 'At least 1 player'
+                : 'Remove player';
             addPlayerBtn.title = activePlayerCount >= MAX_PLAYERS
-                ? 'Maximum van 12 spelers bereikt'
-                : 'Speler toevoegen';
+                ? 'Maximum of 12 players reached'
+                : 'Add player';
         }
 
         function updateScores() {
@@ -2333,7 +2333,7 @@
                             ball2.vx = (finalVx2 * cos - vy2 * sin) * 0.9;
                             ball2.vy = (vy2 * cos + finalVx2 * sin) * 0.9;
                             
-                            // Ballen uit elkaar duwen
+                            // Push balls apart
                             const overlap = minDistance - distance;
                             const separationX = (dx / distance) * overlap * 0.5;
                             const separationY = (dy / distance) * overlap * 0.5;
@@ -2343,7 +2343,7 @@
                             ball2.x += separationX;
                             ball2.y += separationY;
                             
-                            // Ballen kleiner maken
+                            // Shrink balls
                             ball1.shrink();
                             ball2.shrink();
                             
@@ -2374,7 +2374,7 @@
             mouseX = e.clientX - rect.left;
             mouseY = e.clientY - rect.top;
             
-            // Zoek de bal die geklikt is (van boven naar beneden)
+            // Find the clicked ball from top to bottom
             for (let i = balls.length - 1; i >= 0; i--) {
                 if (balls[i].isPointInside(mouseX, mouseY)) {
                     draggedBall = balls[i];
@@ -2478,7 +2478,7 @@
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Ballen updaten en tekenen
+            // Update and draw balls
             balls.forEach(ball => {
                 ball.update();
                 ball.draw();
@@ -2493,7 +2493,7 @@
             requestAnimationFrame(animate);
         }
         
-        // Start het spel
+        // Start the game
         updateTitleColor(); // Initialize title colors
         renderPlayerList();
         initGame();
