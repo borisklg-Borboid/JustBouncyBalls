@@ -537,15 +537,16 @@
         
         #developer-credit {
             position: absolute;
-            bottom: 20px;
+            bottom: 64px;
             left: 50%;
             transform: translateX(-50%);
             font-family: 'Comic Sans MS', cursive, sans-serif;
             font-size: 0.8rem;
-            color: #666;
+            color: rgba(210, 210, 210, 0.74);
             text-align: center;
             pointer-events: none;
-            z-index: 50;
+            z-index: 80;
+            text-shadow: 0 0 8px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 255, 255, 0.22);
         }
 
         #rotateDeviceOverlay {
@@ -709,7 +710,7 @@
             }
 
             #developer-credit {
-                bottom: max(8px, env(safe-area-inset-bottom));
+                bottom: max(38px, calc(env(safe-area-inset-bottom) + 28px));
                 font-size: 0.62rem;
             }
 
