@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Neon Stuiterballen Simulatie</title>
     <style>
         body {
@@ -539,6 +539,201 @@
             pointer-events: none;
             z-index: 50;
         }
+
+        #rotateDeviceOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+            background: radial-gradient(circle at center, rgba(0, 255, 128, 0.16), rgba(0, 0, 0, 0.96) 58%);
+            color: white;
+            text-align: center;
+        }
+
+        .rotate-card {
+            max-width: 360px;
+            padding: 28px 30px;
+            border: 2px solid #00ffff;
+            border-radius: 28px;
+            background: rgba(0, 0, 0, 0.72);
+            box-shadow: 0 0 24px rgba(0, 255, 255, 0.68), inset 0 0 24px rgba(0, 255, 255, 0.08);
+        }
+
+        .rotate-icon {
+            font-size: 4rem;
+            line-height: 1;
+            text-shadow: 0 0 18px #00ffff;
+            animation: rotate-hint 1.8s ease-in-out infinite;
+        }
+
+        .rotate-title {
+            margin-top: 14px;
+            color: #00ffff;
+            font-size: 1.55rem;
+            font-weight: 900;
+            text-shadow: 0 0 12px #00ffff;
+        }
+
+        .rotate-copy {
+            margin-top: 10px;
+            color: #d6ffff;
+            font-size: 1rem;
+            line-height: 1.35;
+        }
+
+        @keyframes rotate-hint {
+            0%, 100% { transform: rotate(-8deg) scale(1); }
+            50% { transform: rotate(8deg) scale(1.08); }
+        }
+
+        @media (pointer: coarse), (max-width: 900px), (max-height: 520px) {
+            #controls {
+                top: max(8px, env(safe-area-inset-top));
+                gap: 10px;
+            }
+
+            .ball-btn {
+                width: 56px;
+                height: 56px;
+                font-size: 11px;
+                box-shadow:
+                    0 0 12px #00ff00,
+                    0 0 26px rgba(0, 255, 0, 0.62),
+                    inset -9px -11px 14px rgba(0, 0, 0, 0.55);
+            }
+
+            #winnerResetBtn {
+                width: 68px;
+                height: 68px;
+                font-size: 12px;
+            }
+
+            #ballCount {
+                top: max(8px, env(safe-area-inset-top));
+                left: max(10px, env(safe-area-inset-left));
+                font-size: 14px;
+            }
+
+            #nameInputArea {
+                top: calc(max(8px, env(safe-area-inset-top)) + 34px);
+                left: max(8px, env(safe-area-inset-left));
+                min-width: 0;
+                width: 190px;
+                max-height: calc(100dvh - 54px);
+                padding: 6px;
+                border-radius: 7px;
+                background: rgba(0, 0, 0, 0.2);
+            }
+
+            .color-row {
+                gap: 6px;
+                margin: 5px 0;
+            }
+
+            .color-box {
+                width: 16px;
+                height: 16px;
+                border-width: 2px;
+            }
+
+            .name-input {
+                max-width: 86px;
+                padding: 4px 6px;
+                font-size: 11px;
+            }
+
+            .color-count {
+                min-width: 24px;
+                padding: 3px 6px;
+                font-size: 12px;
+            }
+
+            #playerControls {
+                gap: 8px;
+                margin-top: 8px;
+            }
+
+            .player-count-btn {
+                width: 31px;
+                height: 31px;
+            }
+
+            .player-count-btn::before {
+                font-size: 24px;
+            }
+
+            #removePlayerBtn::before {
+                font-size: 29px;
+            }
+
+            #totalPlays {
+                top: max(7px, env(safe-area-inset-top));
+                right: max(10px, env(safe-area-inset-right));
+                font-size: 9.5px;
+            }
+
+            #musicPlayer {
+                top: calc(max(7px, env(safe-area-inset-top)) + 22px);
+                right: max(8px, env(safe-area-inset-right));
+                gap: 4px;
+                padding: 4px 5px;
+            }
+
+            .music-btn {
+                width: 20px;
+                height: 20px;
+                font-size: 9px;
+            }
+
+            #musicTitleWindow {
+                width: 82px;
+                font-size: 9px;
+            }
+
+            #title {
+                font-size: clamp(2rem, 8vw, 3.1rem);
+                letter-spacing: 1px;
+            }
+
+            #developer-credit {
+                bottom: max(8px, env(safe-area-inset-bottom));
+                font-size: 0.62rem;
+            }
+
+            .winner-card {
+                min-width: min(520px, 82vw);
+                padding: 28px 34px;
+                border-radius: 26px;
+            }
+
+            #winnerName {
+                font-size: clamp(2.6rem, 10vw, 5rem);
+            }
+
+            .tie-battle-card {
+                width: min(720px, 88vw);
+                padding: 18px 22px 22px;
+            }
+        }
+
+        body.mobile-device.mobile-portrait #rotateDeviceOverlay {
+            display: flex;
+        }
+
+        body.mobile-device.mobile-portrait #canvas,
+        body.mobile-device.mobile-portrait #controls,
+        body.mobile-device.mobile-portrait #nameInputArea,
+        body.mobile-device.mobile-portrait #title,
+        body.mobile-device.mobile-portrait #ballCount,
+        body.mobile-device.mobile-portrait #totalPlays,
+        body.mobile-device.mobile-portrait #musicPlayer,
+        body.mobile-device.mobile-portrait #developer-credit {
+            filter: blur(5px);
+            opacity: 0.34;
+        }
     </style>
 </head>
 <body>
@@ -567,6 +762,13 @@
     </div>
     
     <div id="developer-credit">Developed by BorBoid 2025</div>
+    <div id="rotateDeviceOverlay" aria-live="polite">
+        <div class="rotate-card">
+            <div class="rotate-icon">↻</div>
+            <div class="rotate-title">Turn sideways</div>
+            <div class="rotate-copy">Just Bouncy Balls plays best in landscape. Tap Start and rotate your device.</div>
+        </div>
+    </div>
     
     <canvas id="canvas"></canvas>
     <audio id="backgroundMusic" preload="auto"></audio>
@@ -607,6 +809,7 @@
         const prevTrackBtn = document.getElementById('prevTrackBtn');
         const nextTrackBtn = document.getElementById('nextTrackBtn');
         const musicTitle = document.getElementById('musicTitle');
+        const rotateDeviceOverlay = document.getElementById('rotateDeviceOverlay');
         
         // Game state variables
         let gameStarted = false;
@@ -656,8 +859,61 @@
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
+
+        function isMobileOrTablet() {
+            return window.matchMedia('(pointer: coarse)').matches
+                || Math.min(window.innerWidth, window.innerHeight) <= 900
+                || /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent);
+        }
+
+        function updateDeviceLayout() {
+            const mobileDevice = isMobileOrTablet();
+            const portrait = window.innerHeight > window.innerWidth;
+
+            document.body.classList.toggle('mobile-device', mobileDevice);
+            document.body.classList.toggle('mobile-landscape', mobileDevice && !portrait);
+            document.body.classList.toggle('mobile-portrait', mobileDevice && portrait);
+
+            if (rotateDeviceOverlay) {
+                rotateDeviceOverlay.setAttribute('aria-hidden', String(!(mobileDevice && portrait)));
+            }
+        }
+
+        async function requestLandscapeMode() {
+            if (!isMobileOrTablet()) return;
+
+            try {
+                if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                }
+            } catch (error) {
+                // Fullscreen is optional; browsers may deny it.
+            }
+
+            try {
+                if (screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock('landscape');
+                }
+            } catch (error) {
+                // Orientation lock is optional and often requires fullscreen/PWA mode.
+            }
+
+            updateDeviceLayout();
+            resizeCanvas();
+        }
+
         resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+        updateDeviceLayout();
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            updateDeviceLayout();
+        });
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                resizeCanvas();
+                updateDeviceLayout();
+            }, 180);
+        });
         
         // Twelve clearly distinguishable neon player colors.
         const neonColors = [
@@ -1021,6 +1277,7 @@
             }
             ensureAudio();
             startBackgroundMusic();
+            requestLandscapeMode();
             incrementTotalPlays();
             
             gameStarted = true;
