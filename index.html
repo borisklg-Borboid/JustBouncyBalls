@@ -661,6 +661,12 @@
             'sounds/Popcorn Arcade.mp3'
         ];
         let currentMusicTrackIndex = 0;
+
+        function chooseRandomInitialTrack() {
+            if (musicPlaylist.length <= 1) return;
+
+            currentMusicTrackIndex = Math.floor(Math.random() * musicPlaylist.length);
+        }
         
         // Canvas grootte instellen
         function resizeCanvas() {
@@ -2270,6 +2276,7 @@
         renderPlayerList();
         initGame();
         updateTotalPlaysDisplay();
+        chooseRandomInitialTrack();
         updateMusicTitle();
         startBackgroundMusic();
         animate();
