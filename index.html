@@ -840,6 +840,7 @@
         const MUSIC_BASE_VOLUME = 0.32;
         const MUSIC_DUCKED_VOLUME = 0.035;
         const MAX_BALLS = 2000;
+        const MOBILE_MAX_BALLS = 1000;
         const SWOOSH_START_BALLS = 100;
         const SUPABASE_URL = 'https://jcjnowvvfzcddfjkprbv.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_1ezvUiSnLB-_tbi3qsYsnQ_gsE05-9F';
@@ -875,6 +876,10 @@
             return window.matchMedia('(pointer: coarse)').matches
                 || window.matchMedia('(hover: none)').matches
                 || /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent);
+        }
+
+        function getMaxBalls() {
+            return isMobileOrTablet() ? MOBILE_MAX_BALLS : MAX_BALLS;
         }
 
         function updateDeviceLayout() {
@@ -936,7 +941,7 @@
         const MIN_PLAYERS = 1;
         const STARTING_PLAYERS = 5;
         const MAX_PLAYERS = 12;
-        const MOBILE_BALL_SCALE = 0.4;
+        const MOBILE_BALL_SCALE = 0.32;
         let activePlayerCount = STARTING_PLAYERS;
         let selectedPlayerColors = neonColors.slice(0, STARTING_PLAYERS);
         
@@ -1593,7 +1598,8 @@
         }
 
         function getFinaleSwooshProgress() {
-            return Math.max(0, Math.min(1, (balls.length - SWOOSH_START_BALLS) / (MAX_BALLS - SWOOSH_START_BALLS)));
+            const maxBalls = getMaxBalls();
+            return Math.max(0, Math.min(1, (balls.length - SWOOSH_START_BALLS) / (maxBalls - SWOOSH_START_BALLS)));
         }
 
         function updateFinaleSwoosh() {
@@ -1627,7 +1633,7 @@
             finaleSwoosh.tone.frequency.cancelScheduledValues(now);
             finaleSwoosh.tone.frequency.linearRampToValueAtTime(toneFrequency, now + 0.035);
 
-            if (balls.length >= MAX_BALLS) finishFinaleSwoosh();
+            if (balls.length >= getMaxBalls()) finishFinaleSwoosh();
         }
 
         function startFinaleSwoosh(context) {
@@ -1756,7 +1762,7 @@
             const intensity = options.intensity ?? 1;
             const skipThrottle = options.skipThrottle || false;
             const now = context.currentTime;
-            const growth = Math.min(1, Math.log10(Math.max(2, balls.length)) / Math.log10(MAX_BALLS));
+            const growth = Math.min(1, Math.log10(Math.max(2, balls.length)) / Math.log10(getMaxBalls()));
             const minGap = mode === 'letter'
                 ? 0.045 - growth * 0.027
                 : 0.13 - growth * 0.085;
@@ -2114,7 +2120,7 @@
         }
         
         function checkGameEnd(timestamp) {
-            if (!gameStarted || gameEnded || balls.length < MAX_BALLS) return;
+            if (!gameStarted || gameEnded || balls.length < getMaxBalls()) return;
 
             const allBallsInBottomZone = balls.every(ball => ball.isWithinFinaleBottomZone());
             if (!allBallsInBottomZone) {
@@ -2343,7 +2349,7 @@
                             ball2.shrink();
                             
                             // Spawn new ball on every collision during the game
-                            if (gameStarted && balls.length < MAX_BALLS) {
+                            if (gameStarted && balls.length < getMaxBalls()) {
                                 const newX = Math.random() * (canvas.width - 100) + 50;
                                 const newY = Math.random() * (canvas.height - 100) + 50;
                                 // Random color for fair chances
