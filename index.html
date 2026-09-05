@@ -38,6 +38,8 @@
             top: 56px;
             left: 20px;
             z-index: 100;
+            --player-dot-space: 34px;
+            --player-score-space: 54px;
             background: rgba(0, 0, 0, 0.28);
             border: none;
             border-radius: 8px;
@@ -225,6 +227,8 @@
             align-items: center;
             margin: 8px 0;
             gap: 10px;
+            width: 100%;
+            box-sizing: border-box;
         }
         
         .color-box {
@@ -284,6 +288,10 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
+            box-sizing: border-box;
+            width: 100%;
+            padding-left: var(--player-dot-space);
+            padding-right: var(--player-score-space);
             margin: 12px auto 0;
         }
 
@@ -620,6 +628,8 @@
             #nameInputArea {
                 top: calc(max(8px, env(safe-area-inset-top)) + 34px);
                 left: max(8px, env(safe-area-inset-left));
+                --player-dot-space: 24px;
+                --player-score-space: 42px;
                 min-width: 0;
                 width: 190px;
                 max-height: calc(100dvh - 54px);
