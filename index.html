@@ -1603,8 +1603,8 @@
             const now = context.currentTime;
             const curve = Math.pow(progress, 1.35);
             const bite = Math.pow(progress, 2.2);
-            const volume = 0.018 + curve * 0.46;
-            const toneVolume = 0.018 + bite * 0.07;
+            const volume = 0.0162 + curve * 0.414;
+            const toneVolume = 0.0162 + bite * 0.063;
             const filterFrequency = 300 + curve * 9800;
             const highpassFrequency = 55 + progress * 1450;
             const toneFrequency = 90 + curve * 1520;
@@ -1702,7 +1702,7 @@
             whip.type = 'triangle';
             whip.frequency.setValueAtTime(1900, now);
             whip.frequency.exponentialRampToValueAtTime(140, now + 0.19);
-            whipGain.gain.setValueAtTime(0.28, now);
+            whipGain.gain.setValueAtTime(0.252, now);
             whipGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
 
             noise.buffer = swooshNoiseBuffer;
@@ -1711,7 +1711,7 @@
             noiseFilter.frequency.setValueAtTime(8200, now);
             noiseFilter.frequency.exponentialRampToValueAtTime(420, now + 0.22);
             noiseFilter.Q.value = 6.4;
-            noiseGain.gain.setValueAtTime(0.34, now);
+            noiseGain.gain.setValueAtTime(0.306, now);
             noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
 
             whip.connect(whipGain);
