@@ -151,8 +151,8 @@
             z-index: 100;
             display: flex;
             align-items: center;
-            gap: 5px;
-            padding: 5px 6px;
+            gap: 2px;
+            padding: 4px 5px;
             border-radius: 999px;
             background: rgba(0, 0, 0, 0.32);
             opacity: 0.72;
@@ -200,7 +200,7 @@
         }
 
         #musicTitleWindow {
-            width: 118px;
+            width: 96px;
             overflow: hidden;
             white-space: nowrap;
             color: #cfffff;
@@ -213,8 +213,8 @@
         #musicTitle {
             display: inline-block;
             min-width: 100%;
-            padding-left: 14px;
-            padding-right: 24px;
+            padding-left: 4px;
+            padding-right: 8px;
             animation: music-title-scroll 10s linear infinite;
         }
 
@@ -728,8 +728,8 @@
             #musicPlayer {
                 top: calc(max(7px, env(safe-area-inset-top)) + 22px);
                 right: max(8px, env(safe-area-inset-right));
-                gap: 4px;
-                padding: 4px 5px;
+                gap: 2px;
+                padding: 3px 4px;
             }
 
             .music-btn {
@@ -739,7 +739,7 @@
             }
 
             #musicTitleWindow {
-                width: 82px;
+                width: 70px;
                 font-size: 9px;
             }
 
@@ -943,7 +943,8 @@
         const MUSIC_BASE_VOLUME = 0.32;
         const MUSIC_DUCKED_VOLUME = 0.035;
         const MAX_BALLS = 2000;
-        const MOBILE_MAX_BALLS = 500;
+        const MOBILE_MAX_BALLS = 600;
+        const MOBILE_SIMPLE_DRAW_BALLS = 120; // above this, skip glow/shadow drawing on phones
         const TITLE_BOUNCE_MAX_SPEED = 14;
         const TITLE_BOUNCE_MAX_SPEED_MOBILE = 7;
         const SWOOSH_START_BALLS = 100;
@@ -1038,8 +1039,11 @@
             return isMobileOrTablet() ? MOBILE_MAX_BALLS : MAX_BALLS;
         }
 
+        let cachedMobile = false;
+
         function updateDeviceLayout() {
             const mobileDevice = isMobileOrTablet();
+            cachedMobile = mobileDevice;
             const portrait = window.innerHeight > window.innerWidth;
 
             document.body.classList.toggle('mobile-device', mobileDevice);
@@ -1344,7 +1348,7 @@
             
             draw() {
                 // Simplified drawing for better performance with many balls
-                if (balls.length > 500) {
+                if (balls.length > (cachedMobile ? MOBILE_SIMPLE_DRAW_BALLS : 500)) {
                     // Simple solid circles when there are many balls
                     ctx.fillStyle = this.color;
                     ctx.beginPath();
