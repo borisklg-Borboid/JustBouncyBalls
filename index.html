@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Just Bouncy Balls</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0;
@@ -448,7 +451,7 @@
         #winnerName {
             margin-top: 12px;
             color: var(--winner-color, #ffd700);
-            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-family: 'Comic Sans MS', 'Comic Neue', cursive, sans-serif;
             font-size: clamp(3rem, 9vw, 8rem);
             font-weight: 900;
             line-height: 1;
@@ -486,8 +489,8 @@
             pointer-events: none;
             opacity: 0;
             background:
-                radial-gradient(circle at center, rgba(255, 255, 255, 0.72) 0 3%, rgba(0, 255, 255, 0.42) 4% 10%, rgba(255, 0, 128, 0.25) 11% 19%, transparent 34%),
-                radial-gradient(circle at center, transparent 0 18%, rgba(255, 255, 255, 0.34) 20%, rgba(0, 255, 0, 0.22) 24%, transparent 42%);
+                radial-gradient(circle at center, rgba(255, 255, 255, 0.86) 0 3%, rgba(0, 255, 255, 0.50) 4% 10%, rgba(255, 0, 128, 0.30) 11% 19%, transparent 36%),
+                radial-gradient(circle at center, transparent 0 18%, rgba(255, 255, 255, 0.41) 20%, rgba(0, 255, 0, 0.27) 24%, transparent 45%);
             mix-blend-mode: screen;
             transform: scale(0.22);
         }
@@ -520,9 +523,9 @@
         }
 
         @keyframes finale-blast-pop {
-            0% { opacity: 0; transform: scale(0.18); filter: blur(8px); }
+            0% { opacity: 0; transform: scale(0.15); filter: blur(9px); }
             12% { opacity: 1; }
-            100% { opacity: 0; transform: scale(2.8); filter: blur(0); }
+            100% { opacity: 0; transform: scale(3.35); filter: blur(0); }
         }
 
         body.finale-shake #canvas {
@@ -543,7 +546,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-family: 'Comic Sans MS', 'Comic Neue', cursive, sans-serif;
             font-size: 4rem;
             font-weight: bold;
             color: #ff0080;
@@ -576,7 +579,7 @@
             bottom: 64px;
             left: 50%;
             transform: translateX(-50%);
-            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-family: 'Comic Sans MS', 'Comic Neue', cursive, sans-serif;
             font-size: 0.8rem;
             color: rgba(210, 210, 210, 0.74);
             text-align: center;
@@ -781,6 +784,57 @@
             filter: blur(5px);
             opacity: 0.34;
         }
+
+        .sticky-notification {
+            display: none;
+            position: fixed;
+            width: min(200px, 34vw);
+            height: auto;
+            pointer-events: none;
+            z-index: 50;
+            top: var(--notif-y);
+            left: var(--notif-x);
+            transform: translate(-50%, -50%) rotate(-6deg);
+            filter: drop-shadow(0 0 14px rgba(120, 255, 140, 0.9)) drop-shadow(0 0 30px rgba(120, 255, 140, 0.55));
+        }
+
+        .sticky-notification.visible {
+            display: block;
+        }
+
+        .sticky-notification.flying-in {
+            animation: sticky-fly-in 0.55s cubic-bezier(0.16, 1.4, 0.4, 1) forwards;
+        }
+
+        @keyframes sticky-fly-in {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, calc(-50% - 280px)) scale(0.3) rotate(-50deg);
+            }
+            65% {
+                opacity: 1;
+                transform: translate(-50%, calc(-50% + 10px)) scale(1.12) rotate(6deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1) rotate(-6deg);
+            }
+        }
+
+        .sticky-notification.fade-out {
+            animation: sticky-fade-out 2s ease-in forwards;
+        }
+
+        @keyframes sticky-fade-out {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1) rotate(-6deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -85%) scale(0.85) rotate(-6deg);
+            }
+        }
     </style>
 </head>
 <body>
@@ -820,6 +874,7 @@
     
     <canvas id="canvas"></canvas>
     <audio id="backgroundMusic" preload="auto" autoplay playsinline></audio>
+    <img id="stickyNotification" class="sticky-notification" src="img/We%20got%20sticky%20balls%21.png" alt="We got some sticky balls!">
 
     <div id="tieBattleOverlay" aria-hidden="true">
         <div class="tie-battle-card">
@@ -859,6 +914,7 @@
         const musicTitle = document.getElementById('musicTitle');
         const rotateDeviceOverlay = document.getElementById('rotateDeviceOverlay');
         const finaleBlastElement = document.getElementById('finaleBlast');
+        const stickyNotificationEl = document.getElementById('stickyNotification');
         
         // Game state variables
         let gameStarted = false;
@@ -876,10 +932,20 @@
         let musicRestoreFrame = null;
         let lastLetterPopTime = 0;
         let lastBattlePopTime = 0;
+        let ballIdCounter = 0;
+        let collisionFrameCounter = 0;
+        let stuckPairs = new Map();
+        let activeStickyPairKey = null;
+        let stickyHideTimer = null;
+        const STICKY_DURATION_THRESHOLD_MS = 2000; // must stay glued for 2s before we even consider calling it out
+        const STICKY_STALE_MS = 120; // tolerate a few skipped frames (e.g. hasCollided lockout)
+        const STICKY_CLEANUP_INTERVAL = 30;
         const MUSIC_BASE_VOLUME = 0.32;
         const MUSIC_DUCKED_VOLUME = 0.035;
         const MAX_BALLS = 2000;
         const MOBILE_MAX_BALLS = 500;
+        const TITLE_BOUNCE_MAX_SPEED = 14;
+        const TITLE_BOUNCE_MAX_SPEED_MOBILE = 7;
         const SWOOSH_START_BALLS = 100;
         const FINALE_BLAST_PROGRESS = 0.75;
         const SUPABASE_URL = 'https://jcjnowvvfzcddfjkprbv.supabase.co';
@@ -910,6 +976,54 @@
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+        }
+
+        // Collision boxes of the rendered title letters, measured from the DOM so
+        // they follow the real font size and glyph widths on every device.
+        let titleLetterBoxes = [];
+
+        function measureTitleLetters() {
+            const titleElement = document.getElementById('title');
+            const spans = titleElement.querySelectorAll('span[data-i]');
+            if (spans.length === 0) return;
+
+            const fontSize = parseFloat(getComputedStyle(titleElement).fontSize);
+            const letterHeight = fontSize * 0.85;
+            const originX = canvas.width / 2 - titleElement.offsetWidth / 2;
+            const startY = canvas.height / 2 - letterHeight / 2;
+
+            titleLetterBoxes = Array.from(spans).map(span => {
+                const x = originX + span.offsetLeft;
+                const width = span.offsetWidth;
+
+                return {
+                    index: Number(span.dataset.i),
+                    left: x + width * 0.05,
+                    right: x + width * 0.95,
+                    top: startY + letterHeight * 0.05,
+                    bottom: startY + letterHeight * 0.95
+                };
+            });
+        }
+
+        function getTitleBounds() {
+            if (titleLetterBoxes.length === 0) {
+                return { left: Infinity, right: -Infinity, top: -Infinity };
+            }
+
+            return {
+                left: titleLetterBoxes[0].left,
+                right: titleLetterBoxes[titleLetterBoxes.length - 1].right,
+                top: titleLetterBoxes[0].top
+            };
+        }
+
+        function isAboveTitleLetters(ball1, ball2) {
+            const bounds = getTitleBounds();
+            const midX = (ball1.x + ball2.x) / 2;
+            const midY = (ball1.y + ball2.y) / 2;
+
+            return midX >= bounds.left && midX <= bounds.right && midY <= bounds.top;
         }
 
         function isMobileOrTablet() {
@@ -955,13 +1069,19 @@
         window.addEventListener('resize', () => {
             resizeCanvas();
             updateDeviceLayout();
+            measureTitleLetters();
         });
         window.addEventListener('orientationchange', () => {
             setTimeout(() => {
                 resizeCanvas();
                 updateDeviceLayout();
+                measureTitleLetters();
             }, 180);
         });
+        if (document.fonts) {
+            document.fonts.ready.then(measureTitleLetters);
+            document.fonts.addEventListener('loadingdone', measureTitleLetters);
+        }
         
         // Twelve clearly distinguishable neon player colors.
         const neonColors = [
@@ -992,6 +1112,7 @@
         
         class Ball {
             constructor(x, y, radius = null, color = null) {
+                this.id = ballIdCounter++;
                 this.x = x;
                 this.y = y;
                 const ballScale = isMobileOrTablet() ? MOBILE_BALL_SCALE : 1;
@@ -1070,39 +1191,14 @@
             }
             
             checkTitleCollision() {
-                // Get title position
-                const titleCenterX = canvas.width / 2;
-                const titleCenterY = canvas.height / 2;
-                
-                // Define letter collision boxes with better boundaries
-                const fontSize = 64; // 4rem converted to pixels
-                const letterSpacing = 3;
-                const letterWidth = fontSize * 0.5; // Slightly wider for better detection
-                const letterHeight = fontSize * 0.85; // Slightly taller for better detection
-                
-                // Calculate starting position for the text
-                const text = "Just Bouncy Balls";
-                const totalTextWidth = (text.length * letterWidth) + ((text.length - 1) * letterSpacing);
-                const startX = titleCenterX - totalTextWidth / 2;
-                const startY = titleCenterY - letterHeight / 2;
-                
-                let currentX = startX;
-                
-                for (let i = 0; i < text.length; i++) {
-                    const char = text[i];
-                    
-                    // Skip spaces - allow balls to fall through
-                    if (char === ' ') {
-                        currentX += letterWidth * 0.6; // Space width
-                        continue;
-                    }
-                    
-                    // Define letter collision box with expanded detection area
-                    const letterLeft = currentX + letterWidth * 0.05; // Smaller margin for better detection
-                    const letterRight = currentX + letterWidth * 0.95; // Smaller margin for better detection
-                    const letterTop = startY + letterHeight * 0.05; // Smaller margin for better detection
-                    const letterBottom = startY + letterHeight * 0.95; // Smaller margin for better detection
-                    
+                // Boxes come from the rendered title; spaces have no box, so balls fall through
+                for (const box of titleLetterBoxes) {
+                    const i = box.index;
+                    const letterLeft = box.left;
+                    const letterRight = box.right;
+                    const letterTop = box.top;
+                    const letterBottom = box.bottom;
+
                     // Get ball position and radius
                     const ballCenterX = this.x;
                     const ballCenterY = this.y;
@@ -1178,11 +1274,17 @@
                         // Ensure minimum velocity to prevent sticking
                         if (Math.abs(this.vx) < 1) this.vx = (this.vx >= 0 ? 1 : -1);
                         if (Math.abs(this.vy) < 1) this.vy = (this.vy >= 0 ? 1 : -1);
-                        
+
+                        // Cap the bounce so a ball wedged between letters can't compound the 1.4x boost every frame
+                        const maxSpeed = isMobileOrTablet() ? TITLE_BOUNCE_MAX_SPEED_MOBILE : TITLE_BOUNCE_MAX_SPEED;
+                        const speed = Math.hypot(this.vx, this.vy);
+                        if (speed > maxSpeed) {
+                            this.vx *= maxSpeed / speed;
+                            this.vy *= maxSpeed / speed;
+                        }
+
                         return; // Exit after first collision
                     }
-                    
-                    currentX += letterWidth + letterSpacing;
                 }
             }
             
@@ -1322,6 +1424,8 @@
                 finaleSwooshFinished = false;
                 finaleBlastTriggered = false;
                 stopFinaleSwoosh();
+                stuckPairs.clear();
+                hideStickyNotification();
                 hideWinner();
                 updateTitleColor();
                 initGame();
@@ -1368,6 +1472,8 @@
             finaleBlastTriggered = false;
             stopFinaleSwoosh();
             stopTieBattle();
+            stuckPairs.clear();
+            hideStickyNotification();
             if (finaleBlastElement) finaleBlastElement.classList.remove('active');
             document.body.classList.remove('finale-shake');
             
@@ -2324,7 +2430,7 @@
                 if (char === ' ') {
                     coloredText += ' ';
                 } else {
-                    coloredText += `<span style="color: ${color}; text-shadow: 0 0 20px ${color}, 0 0 40px ${color}, 0 0 60px ${color};">${char}</span>`;
+                    coloredText += `<span data-i="${i}" style="color: ${color}; text-shadow: 0 0 20px ${color}, 0 0 40px ${color}, 0 0 60px ${color};">${char}</span>`;
                 }
             }
             
@@ -2414,7 +2520,8 @@
         
         function checkCollisions() {
             updateSpatialGrid();
-            
+            collisionFrameCounter++;
+
             // Only check collisions within same grid cells and adjacent cells
             Object.keys(spatialGrid).forEach(key => {
                 const ballIndices = spatialGrid[key];
@@ -2503,12 +2610,108 @@
                             // Simplified visual effect
                             ball1.glowIntensity = 1.5;
                             ball2.glowIntensity = 1.5;
+
+                            // Track whether the separation push above actually works.
+                            // If two balls keep overlapping frame after frame instead of
+                            // bouncing apart, they've effectively glued together - rare, but funny.
+                            trackStickyPair(ball1, ball2);
                         }
                     });
                 });
             });
+
+            if (collisionFrameCounter % STICKY_CLEANUP_INTERVAL === 0) {
+                cleanupStuckPairs();
+            }
+
+            if (activeStickyPairKey) {
+                const entry = stuckPairs.get(activeStickyPairKey);
+                if (!entry || performance.now() - entry.lastSeen > STICKY_STALE_MS) {
+                    hideStickyNotification();
+                }
+            }
         }
-        
+
+        function trackStickyPair(ball1, ball2) {
+            const now = performance.now();
+            const pairKey = ball1.id < ball2.id ? `${ball1.id}_${ball2.id}` : `${ball2.id}_${ball1.id}`;
+            const existing = stuckPairs.get(pairKey);
+
+            if (existing && now - existing.lastSeen <= STICKY_STALE_MS) {
+                existing.lastSeen = now;
+                existing.ball1 = ball1;
+                existing.ball2 = ball2;
+            } else {
+                stuckPairs.set(pairKey, { startTime: now, lastSeen: now, ball1, ball2 });
+            }
+
+            const entry = stuckPairs.get(pairKey);
+            const stuckDuration = now - entry.startTime;
+            const aboveLetters = isAboveTitleLetters(ball1, ball2);
+
+            // Full-strength callout, but only for the rarest case: a pair glued
+            // together while hovering right above the title letters.
+            if (stuckDuration >= STICKY_DURATION_THRESHOLD_MS && aboveLetters) {
+                showStickyNotification(ball1, ball2, pairKey);
+            } else if (activeStickyPairKey === pairKey) {
+                if (aboveLetters) {
+                    updateStickyNotificationPosition(ball1, ball2);
+                } else {
+                    hideStickyNotification();
+                }
+            }
+        }
+
+        function cleanupStuckPairs() {
+            const now = performance.now();
+            stuckPairs.forEach((entry, key) => {
+                if (now - entry.lastSeen > STICKY_STALE_MS * 3) {
+                    stuckPairs.delete(key);
+                    if (activeStickyPairKey === key) hideStickyNotification();
+                }
+            });
+        }
+
+        function showStickyNotification(ball1, ball2, pairKey) {
+            if (activeStickyPairKey === pairKey) {
+                updateStickyNotificationPosition(ball1, ball2);
+                return;
+            }
+
+            activeStickyPairKey = pairKey;
+            if (stickyHideTimer) {
+                clearTimeout(stickyHideTimer);
+                stickyHideTimer = null;
+            }
+
+            updateStickyNotificationPosition(ball1, ball2);
+            stickyNotificationEl.classList.remove('fade-out');
+            stickyNotificationEl.classList.add('visible', 'flying-in');
+        }
+
+        function updateStickyNotificationPosition(ball1, ball2) {
+            const midX = (ball1.x + ball2.x) / 2;
+            const midY = (ball1.y + ball2.y) / 2;
+            const offsetAbove = Math.max(ball1.radius, ball2.radius) + 50;
+
+            const clampedX = Math.max(90, Math.min(canvas.width - 90, midX));
+            const clampedY = Math.max(50, midY - offsetAbove);
+
+            stickyNotificationEl.style.setProperty('--notif-x', `${clampedX}px`);
+            stickyNotificationEl.style.setProperty('--notif-y', `${clampedY}px`);
+        }
+
+        function hideStickyNotification() {
+            if (!activeStickyPairKey) return;
+            activeStickyPairKey = null;
+
+            stickyNotificationEl.classList.remove('flying-in');
+            stickyNotificationEl.classList.add('fade-out');
+            stickyHideTimer = setTimeout(() => {
+                stickyNotificationEl.classList.remove('visible', 'fade-out');
+            }, 2000);
+        }
+
         // Mouse events
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
@@ -2640,6 +2843,7 @@
         
         // Start the game
         updateTitleColor(); // Initialize title colors
+        measureTitleLetters();
         renderPlayerList();
         initGame();
         updateTotalPlaysDisplay();
