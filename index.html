@@ -1571,7 +1571,8 @@
             startBtn.disabled = true;
             startBtn.style.opacity = '0.5';
             startBtn.style.cursor = 'not-allowed';
-            resetBtn.disabled = true;
+            // Reset stays available so a running round can be aborted
+            resetBtn.disabled = false;
             renderPlayerList();
             
             // Start with one ball for every visible player.
