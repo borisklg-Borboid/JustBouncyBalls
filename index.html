@@ -588,55 +588,6 @@
             text-shadow: 0 0 8px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 255, 255, 0.22);
         }
 
-        #rotateDeviceOverlay {
-            position: fixed;
-            inset: 0;
-            z-index: 3000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 28px;
-            background: radial-gradient(circle at center, rgba(0, 255, 128, 0.16), rgba(0, 0, 0, 0.96) 58%);
-            color: white;
-            text-align: center;
-        }
-
-        .rotate-card {
-            max-width: 360px;
-            padding: 28px 30px;
-            border: 2px solid #00ffff;
-            border-radius: 28px;
-            background: rgba(0, 0, 0, 0.72);
-            box-shadow: 0 0 24px rgba(0, 255, 255, 0.68), inset 0 0 24px rgba(0, 255, 255, 0.08);
-        }
-
-        .rotate-icon {
-            font-size: 4rem;
-            line-height: 1;
-            text-shadow: 0 0 18px #00ffff;
-            animation: rotate-hint 1.8s ease-in-out infinite;
-        }
-
-        .rotate-title {
-            margin-top: 14px;
-            color: #00ffff;
-            font-size: 1.55rem;
-            font-weight: 900;
-            text-shadow: 0 0 12px #00ffff;
-        }
-
-        .rotate-copy {
-            margin-top: 10px;
-            color: #d6ffff;
-            font-size: 1rem;
-            line-height: 1.35;
-        }
-
-        @keyframes rotate-hint {
-            0%, 100% { transform: rotate(-8deg) scale(1); }
-            50% { transform: rotate(8deg) scale(1.08); }
-        }
-
         @media (pointer: coarse), (max-width: 900px), (max-height: 520px) {
             #controls {
                 top: max(8px, env(safe-area-inset-top));
@@ -769,20 +720,28 @@
             }
         }
 
-        body.mobile-device.mobile-portrait #rotateDeviceOverlay {
-            display: flex;
+        /* Portrait phone: title spans the width (sized in JS), UI packed into the top corners
+           so the playfield stays clean for screen recordings. */
+        body.portrait-layout #controls {
+            top: calc(max(8px, env(safe-area-inset-top)) + 58px);
+            left: auto;
+            right: max(10px, env(safe-area-inset-right));
+            transform: none;
+            gap: 8px;
         }
 
-        body.mobile-device.mobile-portrait #canvas,
-        body.mobile-device.mobile-portrait #controls,
-        body.mobile-device.mobile-portrait #nameInputArea,
-        body.mobile-device.mobile-portrait #title,
-        body.mobile-device.mobile-portrait #ballCount,
-        body.mobile-device.mobile-portrait #totalPlays,
-        body.mobile-device.mobile-portrait #musicPlayer,
-        body.mobile-device.mobile-portrait #developer-credit {
-            filter: blur(5px);
-            opacity: 0.34;
+        body.portrait-layout .ball-btn {
+            width: 50px;
+            height: 50px;
+            font-size: 10px;
+        }
+
+        body.portrait-layout #nameInputArea {
+            width: 168px;
+        }
+
+        body.portrait-layout .name-input {
+            max-width: 70px;
         }
 
         .sticky-notification {
@@ -864,13 +823,6 @@
     </div>
     
     <div id="developer-credit">© BorBoid 2026</div>
-    <div id="rotateDeviceOverlay" aria-live="polite">
-        <div class="rotate-card">
-            <div class="rotate-icon">↻</div>
-            <div class="rotate-title">Turn sideways</div>
-            <div class="rotate-copy">Just Bouncy Balls plays best in landscape. Rotate your device for the full game view.</div>
-        </div>
-    </div>
     
     <canvas id="canvas"></canvas>
     <audio id="backgroundMusic" preload="auto" autoplay playsinline></audio>
@@ -912,7 +864,6 @@
         const prevTrackBtn = document.getElementById('prevTrackBtn');
         const nextTrackBtn = document.getElementById('nextTrackBtn');
         const musicTitle = document.getElementById('musicTitle');
-        const rotateDeviceOverlay = document.getElementById('rotateDeviceOverlay');
         const finaleBlastElement = document.getElementById('finaleBlast');
         const stickyNotificationEl = document.getElementById('stickyNotification');
         
@@ -984,9 +935,23 @@
         // Collision boxes of the rendered title letters, measured from the DOM so
         // they follow the real font size and glyph widths on every device.
         let titleLetterBoxes = [];
+        let titleZone = null; // union of all letter boxes, used to skip far-away balls quickly
+
+        // Portrait: scale the title so it spans the screen width with a small margin on both sides
+        function fitTitleToWidth(titleElement) {
+            titleElement.style.fontSize = '';
+            if (!document.body.classList.contains('portrait-layout')) return;
+
+            const referenceSize = 100;
+            titleElement.style.fontSize = referenceSize + 'px';
+            const margin = Math.max(16, window.innerWidth * 0.05);
+            const targetWidth = window.innerWidth - margin * 2;
+            titleElement.style.fontSize = (referenceSize * targetWidth / titleElement.offsetWidth) + 'px';
+        }
 
         function measureTitleLetters() {
             const titleElement = document.getElementById('title');
+            fitTitleToWidth(titleElement);
             const spans = titleElement.querySelectorAll('span[data-i]');
             if (spans.length === 0) return;
 
@@ -1007,6 +972,13 @@
                     bottom: startY + letterHeight * 0.95
                 };
             });
+
+            titleZone = {
+                left: Math.min(...titleLetterBoxes.map(box => box.left)),
+                right: Math.max(...titleLetterBoxes.map(box => box.right)),
+                top: startY + letterHeight * 0.05,
+                bottom: startY + letterHeight * 0.95
+            };
         }
 
         function getTitleBounds() {
@@ -1029,45 +1001,29 @@
             return midX >= bounds.left && midX <= bounds.right && midY <= bounds.top;
         }
 
-        function isMobileOrTablet() {
+        function detectMobileOrTablet() {
             return window.matchMedia('(pointer: coarse)').matches
                 || window.matchMedia('(hover: none)').matches
                 || /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent);
+        }
+
+        // Cached: this is called per ball / per collision, refreshed on resize/rotate.
+        let cachedMobile = detectMobileOrTablet();
+
+        function isMobileOrTablet() {
+            return cachedMobile;
         }
 
         function getMaxBalls() {
             return isMobileOrTablet() ? MOBILE_MAX_BALLS : MAX_BALLS;
         }
 
-        let cachedMobile = false;
-
         function updateDeviceLayout() {
-            const mobileDevice = isMobileOrTablet();
-            cachedMobile = mobileDevice;
-            const portrait = window.innerHeight > window.innerWidth;
+            cachedMobile = detectMobileOrTablet();
+            const portraitLayout = window.innerHeight > window.innerWidth && window.innerWidth <= 900;
 
-            document.body.classList.toggle('mobile-device', mobileDevice);
-            document.body.classList.toggle('mobile-landscape', mobileDevice && !portrait);
-            document.body.classList.toggle('mobile-portrait', mobileDevice && portrait);
-
-            if (rotateDeviceOverlay) {
-                rotateDeviceOverlay.setAttribute('aria-hidden', String(!(mobileDevice && portrait)));
-            }
-        }
-
-        async function requestLandscapeMode() {
-            if (!isMobileOrTablet()) return;
-
-            try {
-                if (screen.orientation && screen.orientation.lock) {
-                    await screen.orientation.lock('landscape');
-                }
-            } catch (error) {
-                // Orientation lock is optional and often requires fullscreen/PWA mode.
-            }
-
-            updateDeviceLayout();
-            resizeCanvas();
+            document.body.classList.toggle('mobile-device', cachedMobile);
+            document.body.classList.toggle('portrait-layout', portraitLayout);
         }
 
         resizeCanvas();
@@ -1107,6 +1063,13 @@
         const MIN_PLAYERS = 1;
         const STARTING_PLAYERS = 5;
         const MAX_PLAYERS = 12;
+        const MOBILE_MAX_PLAYERS = 5;
+
+        function getMaxPlayers() {
+            return (isMobileOrTablet() || document.body.classList.contains('portrait-layout'))
+                ? MOBILE_MAX_PLAYERS
+                : MAX_PLAYERS;
+        }
         const MOBILE_BALL_SCALE = 0.32;
         let activePlayerCount = STARTING_PLAYERS;
         let selectedPlayerColors = neonColors.slice(0, STARTING_PLAYERS);
@@ -1191,12 +1154,21 @@
             isWithinFinaleBottomZone() {
                 const ballHeight = this.radius * 2;
                 const topOfBall = this.y - this.radius;
-                const bottomZoneTop = canvas.height - (FINALE_BOTTOM_BALL_HEIGHTS * ballHeight);
+                const bottomZoneTop = canvas.height - Math.max(FINALE_BOTTOM_BALL_HEIGHTS * ballHeight, finaleExtraZone);
 
                 return topOfBall >= bottomZoneTop;
             }
             
             checkTitleCollision() {
+                // Balls that can't reach the title this frame skip the per-letter tests
+                if (titleZone) {
+                    const reach = this.radius + Math.abs(this.vx) + Math.abs(this.vy) + 2;
+                    if (this.x < titleZone.left - reach || this.x > titleZone.right + reach ||
+                        this.y < titleZone.top - reach || this.y > titleZone.bottom + reach) {
+                        return;
+                    }
+                }
+
                 // Boxes come from the rendered title; spaces have no box, so balls fall through
                 for (const box of titleLetterBoxes) {
                     const i = box.index;
@@ -1231,8 +1203,10 @@
                         // Collision detected!
                         
                         // Change letter color to ball color
-                        letterColors[i] = this.color;
-                        updateTitleColor();
+                        if (letterColors[i] !== this.color) {
+                            letterColors[i] = this.color;
+                            updateTitleColor();
+                        }
                         playPopcornPop();
                         
                         // Determine collision direction based on ball position relative to letter center
@@ -1438,7 +1412,6 @@
             }
             ensureAudio();
             startBackgroundMusic();
-            requestLandscapeMode();
             incrementTotalPlays();
             
             gameStarted = true;
@@ -1525,6 +1498,7 @@
         }
 
         function renderPlayerList() {
+            activePlayerCount = Math.min(activePlayerCount, getMaxPlayers());
             const colorCounts = countLetterColors();
             const colorList = document.getElementById('colorList');
             colorList.innerHTML = '';
@@ -1565,12 +1539,12 @@
 
             const roundInProgress = gameStarted && !gameEnded;
             removePlayerBtn.disabled = activePlayerCount <= MIN_PLAYERS || roundInProgress;
-            addPlayerBtn.disabled = activePlayerCount >= MAX_PLAYERS || roundInProgress;
+            addPlayerBtn.disabled = activePlayerCount >= getMaxPlayers() || roundInProgress;
             removePlayerBtn.title = activePlayerCount <= MIN_PLAYERS
                 ? 'At least 1 player'
                 : 'Remove player';
-            addPlayerBtn.title = activePlayerCount >= MAX_PLAYERS
-                ? 'Maximum of 12 players reached'
+            addPlayerBtn.title = activePlayerCount >= getMaxPlayers()
+                ? `Maximum of ${getMaxPlayers()} players reached`
                 : 'Add player';
         }
 
@@ -1587,7 +1561,7 @@
         }
 
         function addPlayer() {
-            if (activePlayerCount >= MAX_PLAYERS || (gameStarted && !gameEnded)) return;
+            if (activePlayerCount >= getMaxPlayers() || (gameStarted && !gameEnded)) return;
             const usedColors = getActiveColors();
             const nextColor = neonColors.find(color => !usedColors.includes(color));
             selectedPlayerColors[activePlayerCount] = nextColor || neonColors[activePlayerCount];
@@ -2370,8 +2344,16 @@
             resetBtn.disabled = false;
         }
         
+        // In a narrow (portrait) screen the settled pile is taller than 10 ball heights,
+        // so the finale zone grows with the total ball area spread over the width.
+        let finaleExtraZone = 0;
+
         function checkGameEnd(timestamp) {
             if (!gameStarted || gameEnded || balls.length < getMaxBalls()) return;
+
+            finaleExtraZone = document.body.classList.contains('portrait-layout')
+                ? 1.3 * balls.reduce((sum, ball) => sum + Math.PI * ball.radius * ball.radius, 0) / canvas.width
+                : 0;
 
             const allBallsInBottomZone = balls.every(ball => ball.isWithinFinaleBottomZone());
             if (!allBallsInBottomZone) {
@@ -2505,126 +2487,131 @@
             }
         }
         
-        // Spatial partitioning for better collision performance
-        const GRID_SIZE = 100;
-        let spatialGrid = {};
-        
-        function getGridKey(x, y) {
-            const gridX = Math.floor(x / GRID_SIZE);
-            const gridY = Math.floor(y / GRID_SIZE);
-            return `${gridX},${gridY}`;
-        }
-        
-        function updateSpatialGrid() {
-            spatialGrid = {};
-            balls.forEach((ball, index) => {
-                const key = getGridKey(ball.x, ball.y);
-                if (!spatialGrid[key]) spatialGrid[key] = [];
-                spatialGrid[key].push(index);
-            });
-        }
-        
-        function checkCollisions() {
-            updateSpatialGrid();
-            collisionFrameCounter++;
+        // Spatial partitioning: uniform grid whose cells fit the largest ball, kept in
+        // flat typed arrays (linked lists per cell) so there are no per-frame allocations.
+        let gridHead = new Int32Array(0);
+        let gridNext = new Int32Array(0);
 
-            // Only check collisions within same grid cells and adjacent cells
-            Object.keys(spatialGrid).forEach(key => {
-                const ballIndices = spatialGrid[key];
-                const [gridX, gridY] = key.split(',').map(Number);
+        function collidePair(ball1, ball2) {
+            if (ball1.hasCollided || ball2.hasCollided) return;
+
+            const dx = ball2.x - ball1.x;
+            const dy = ball2.y - ball1.y;
+            const distanceSquared = dx * dx + dy * dy;
+            const minDistance = ball1.radius + ball2.radius;
+
+            if (distanceSquared < minDistance * minDistance && distanceSquared > 0) {
+                const distance = Math.sqrt(distanceSquared);
                 
-                // Get adjacent cells
-                const adjacentCells = [];
-                for (let dx = -1; dx <= 1; dx++) {
-                    for (let dy = -1; dy <= 1; dy++) {
-                        const adjacentKey = `${gridX + dx},${gridY + dy}`;
-                        if (spatialGrid[adjacentKey]) {
-                            adjacentCells.push(...spatialGrid[adjacentKey]);
-                        }
-                    }
+                // Markeer beide ballen als gebotst
+                ball1.hasCollided = true;
+                ball2.hasCollided = true;
+                
+                // Simplified collision response for performance
+                const angle = Math.atan2(dy, dx);
+                const sin = Math.sin(angle);
+                const cos = Math.cos(angle);
+                
+                // Roteer snelheden
+                const vx1 = ball1.vx * cos + ball1.vy * sin;
+                const vy1 = ball1.vy * cos - ball1.vx * sin;
+                const vx2 = ball2.vx * cos + ball2.vy * sin;
+                const vy2 = ball2.vy * cos - ball2.vx * sin;
+                
+                // Elastische botsing
+                const finalVx1 = ((ball1.radius - ball2.radius) * vx1 + 2 * ball2.radius * vx2) / (ball1.radius + ball2.radius);
+                const finalVx2 = ((ball2.radius - ball1.radius) * vx2 + 2 * ball1.radius * vx1) / (ball1.radius + ball2.radius);
+                
+                // Simple collision response without chaos multipliers
+                ball1.vx = (finalVx1 * cos - vy1 * sin) * 0.9;
+                ball1.vy = (vy1 * cos + finalVx1 * sin) * 0.9;
+                ball2.vx = (finalVx2 * cos - vy2 * sin) * 0.9;
+                ball2.vy = (vy2 * cos + finalVx2 * sin) * 0.9;
+                
+                // Push balls apart
+                const overlap = minDistance - distance;
+                const separationX = (dx / distance) * overlap * 0.5;
+                const separationY = (dy / distance) * overlap * 0.5;
+                
+                ball1.x -= separationX;
+                ball1.y -= separationY;
+                ball2.x += separationX;
+                ball2.y += separationY;
+                
+                // Shrink balls
+                ball1.shrink();
+                ball2.shrink();
+                
+                // Spawn new ball on every collision during the game
+                if (gameStarted && balls.length < getMaxBalls()) {
+                    const newX = Math.random() * (canvas.width - 100) + 50;
+                    const newY = Math.random() * (canvas.height - 100) + 50;
+                    // Random color for fair chances
+                    const activeColors = getActiveColors();
+                    const randomColor = activeColors[Math.floor(Math.random() * activeColors.length)];
+                    const newBall = new Ball(newX, newY, Math.random() * 8 + 4, randomColor);
+                    balls.push(newBall);
+                    updateBallCount();
                 }
                 
-                // Check collisions within this cell and adjacent cells
-                ballIndices.forEach(i => {
-                    adjacentCells.forEach(j => {
-                        if (i >= j) return; // Avoid duplicate checks
-                        
-                        const ball1 = balls[i];
-                        const ball2 = balls[j];
-                        
-                        if (!ball1 || !ball2 || ball1.hasCollided || ball2.hasCollided) return;
-                        
-                        const dx = ball2.x - ball1.x;
-                        const dy = ball2.y - ball1.y;
-                        const distanceSquared = dx * dx + dy * dy;
-                        const minDistance = ball1.radius + ball2.radius;
-                        
-                        if (distanceSquared < minDistance * minDistance && distanceSquared > 0) {
-                            const distance = Math.sqrt(distanceSquared);
-                            
-                            // Markeer beide ballen als gebotst
-                            ball1.hasCollided = true;
-                            ball2.hasCollided = true;
-                            
-                            // Simplified collision response for performance
-                            const angle = Math.atan2(dy, dx);
-                            const sin = Math.sin(angle);
-                            const cos = Math.cos(angle);
-                            
-                            // Roteer snelheden
-                            const vx1 = ball1.vx * cos + ball1.vy * sin;
-                            const vy1 = ball1.vy * cos - ball1.vx * sin;
-                            const vx2 = ball2.vx * cos + ball2.vy * sin;
-                            const vy2 = ball2.vy * cos - ball2.vx * sin;
-                            
-                            // Elastische botsing
-                            const finalVx1 = ((ball1.radius - ball2.radius) * vx1 + 2 * ball2.radius * vx2) / (ball1.radius + ball2.radius);
-                            const finalVx2 = ((ball2.radius - ball1.radius) * vx2 + 2 * ball1.radius * vx1) / (ball1.radius + ball2.radius);
-                            
-                            // Simple collision response without chaos multipliers
-                            ball1.vx = (finalVx1 * cos - vy1 * sin) * 0.9;
-                            ball1.vy = (vy1 * cos + finalVx1 * sin) * 0.9;
-                            ball2.vx = (finalVx2 * cos - vy2 * sin) * 0.9;
-                            ball2.vy = (vy2 * cos + finalVx2 * sin) * 0.9;
-                            
-                            // Push balls apart
-                            const overlap = minDistance - distance;
-                            const separationX = (dx / distance) * overlap * 0.5;
-                            const separationY = (dy / distance) * overlap * 0.5;
-                            
-                            ball1.x -= separationX;
-                            ball1.y -= separationY;
-                            ball2.x += separationX;
-                            ball2.y += separationY;
-                            
-                            // Shrink balls
-                            ball1.shrink();
-                            ball2.shrink();
-                            
-                            // Spawn new ball on every collision during the game
-                            if (gameStarted && balls.length < getMaxBalls()) {
-                                const newX = Math.random() * (canvas.width - 100) + 50;
-                                const newY = Math.random() * (canvas.height - 100) + 50;
-                                // Random color for fair chances
-                                const activeColors = getActiveColors();
-                                const randomColor = activeColors[Math.floor(Math.random() * activeColors.length)];
-                                const newBall = new Ball(newX, newY, Math.random() * 8 + 4, randomColor);
-                                balls.push(newBall);
-                                updateBallCount();
-                            }
-                            
-                            // Simplified visual effect
-                            ball1.glowIntensity = 1.5;
-                            ball2.glowIntensity = 1.5;
+                // Simplified visual effect
+                ball1.glowIntensity = 1.5;
+                ball2.glowIntensity = 1.5;
 
-                            // Track whether the separation push above actually works.
-                            // If two balls keep overlapping frame after frame instead of
-                            // bouncing apart, they've effectively glued together - rare, but funny.
-                            trackStickyPair(ball1, ball2);
-                        }
-                    });
-                });
-            });
+                // Track whether the separation push above actually works.
+                // If two balls keep overlapping frame after frame instead of
+                // bouncing apart, they've effectively glued together - rare, but funny.
+                trackStickyPair(ball1, ball2);
+            }
+        }
+
+        // Only balls after `index` in the cell, so every pair is handled once
+        function collideWithCell(ball, index, cell) {
+            for (let j = gridHead[cell]; j !== -1; j = gridNext[j]) {
+                if (j > index) collidePair(ball, balls[j]);
+            }
+        }
+
+        function checkCollisions() {
+            collisionFrameCounter++;
+
+            const count = balls.length;
+            let maxRadius = 0;
+            for (let i = 0; i < count; i++) {
+                if (balls[i].radius > maxRadius) maxRadius = balls[i].radius;
+            }
+
+            const cellSize = Math.max(8, maxRadius * 2);
+            const cols = Math.floor(canvas.width / cellSize) + 1;
+            const rows = Math.floor(canvas.height / cellSize) + 1;
+            const cellCount = cols * rows;
+
+            if (gridHead.length < cellCount) gridHead = new Int32Array(cellCount);
+            if (gridNext.length < count) gridNext = new Int32Array(count * 2);
+            gridHead.fill(-1, 0, cellCount);
+
+            for (let i = 0; i < count; i++) {
+                const ball = balls[i];
+                const cx = Math.min(cols - 1, Math.max(0, (ball.x / cellSize) | 0));
+                const cy = Math.min(rows - 1, Math.max(0, (ball.y / cellSize) | 0));
+                const cell = cy * cols + cx;
+                gridNext[i] = gridHead[cell];
+                gridHead[cell] = i;
+            }
+
+            // Balls are processed in array order (like before) so the pile doesn't get
+            // swept in one spatial direction; the grid only narrows down the neighbours.
+            for (let i = 0; i < count; i++) {
+                const ball = balls[i];
+                const cx = Math.min(cols - 1, Math.max(0, (ball.x / cellSize) | 0));
+                const cy = Math.min(rows - 1, Math.max(0, (ball.y / cellSize) | 0));
+
+                for (let ny = Math.max(0, cy - 1); ny <= Math.min(rows - 1, cy + 1); ny++) {
+                    for (let nx = Math.max(0, cx - 1); nx <= Math.min(cols - 1, cx + 1); nx++) {
+                        collideWithCell(ball, i, ny * cols + nx);
+                    }
+                }
+            }
 
             if (collisionFrameCounter % STICKY_CLEANUP_INTERVAL === 0) {
                 cleanupStuckPairs();
@@ -2826,6 +2813,34 @@
         addPlayerBtn.addEventListener('click', addPlayer);
         removePlayerBtn.addEventListener('click', removePlayer);
         
+        // Many balls: plain solid circles, one path and one fill per colour
+        const ballDrawGroups = new Map();
+
+        function drawBallsSimple() {
+            ballDrawGroups.forEach(group => { group.length = 0; });
+
+            for (const ball of balls) {
+                let group = ballDrawGroups.get(ball.color);
+                if (!group) {
+                    group = [];
+                    ballDrawGroups.set(ball.color, group);
+                }
+                group.push(ball);
+            }
+
+            ballDrawGroups.forEach((group, color) => {
+                if (group.length === 0) return;
+
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                for (const ball of group) {
+                    ctx.moveTo(ball.x + ball.radius, ball.y);
+                    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                }
+                ctx.fill();
+            });
+        }
+
         // Game loop
         function animate(timestamp) {
             // Canvas leegmaken met zwarte achtergrond
@@ -2833,11 +2848,13 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             // Update and draw balls
-            balls.forEach(ball => {
-                ball.update();
-                ball.draw();
-            });
-            
+            balls.forEach(ball => ball.update());
+            if (balls.length > (cachedMobile ? MOBILE_SIMPLE_DRAW_BALLS : 500)) {
+                drawBallsSimple();
+            } else {
+                balls.forEach(ball => ball.draw());
+            }
+
             // Botsingen controleren
             checkCollisions();
             
