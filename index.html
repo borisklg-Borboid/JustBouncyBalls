@@ -757,6 +757,59 @@
             max-width: 70px;
         }
 
+        #rotateDeviceOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            text-align: center;
+        }
+
+        body.landscape-blocked #rotateDeviceOverlay {
+            display: flex;
+        }
+
+        .rotate-card {
+            max-width: 360px;
+            padding: 22px 26px;
+            border: 2px solid #00ffff;
+            border-radius: 28px;
+            background: rgba(0, 0, 0, 0.72);
+            box-shadow: 0 0 24px rgba(0, 255, 255, 0.68), inset 0 0 24px rgba(0, 255, 255, 0.08);
+        }
+
+        .rotate-icon {
+            font-size: 3.4rem;
+            line-height: 1;
+            text-shadow: 0 0 18px #00ffff;
+            animation: rotate-hint 1.8s ease-in-out infinite;
+        }
+
+        .rotate-title {
+            margin-top: 10px;
+            color: #00ffff;
+            font-size: 1.4rem;
+            font-weight: 900;
+            text-shadow: 0 0 12px #00ffff;
+        }
+
+        .rotate-copy {
+            margin-top: 8px;
+            color: #d6ffff;
+            font-size: 0.95rem;
+            line-height: 1.35;
+        }
+
+        @keyframes rotate-hint {
+            0%, 100% { transform: rotate(-8deg) scale(1); }
+            50% { transform: rotate(8deg) scale(1.08); }
+        }
+
         .sticky-notification {
             display: none;
             position: fixed;
@@ -837,6 +890,14 @@
     
     <div id="developer-credit">© BorBoid 2026</div>
     
+    <div id="rotateDeviceOverlay" aria-live="polite">
+        <div class="rotate-card">
+            <div class="rotate-icon">↻</div>
+            <div class="rotate-title">Turn back upright</div>
+            <div class="rotate-copy">Just Bouncy Balls is played in portrait. Your game is paused and continues when you rotate back.</div>
+        </div>
+    </div>
+
     <canvas id="canvas"></canvas>
     <audio id="backgroundMusic" preload="auto" autoplay playsinline></audio>
     <img id="stickyNotification" class="sticky-notification" src="img/We%20got%20sticky%20balls%21.png" alt="We got some sticky balls!">
@@ -907,7 +968,8 @@
         const MUSIC_BASE_VOLUME = 0.32;
         const MUSIC_DUCKED_VOLUME = 0.035;
         const MAX_BALLS = 2000;
-        const MOBILE_MAX_BALLS = 1000;
+        const MOBILE_MAX_BALLS = 500;
+        const MOBILE_BOUNCE_BOOST = 1.06; // a little extra bounce on phones for a crazier feel
         const MOBILE_SIMPLE_DRAW_BALLS = 120; // above this, skip glow/shadow drawing on phones
         const TITLE_BOUNCE_MAX_SPEED = 14;
         const TITLE_BOUNCE_MAX_SPEED_MOBILE = 7;
@@ -941,6 +1003,9 @@
         
         // Set canvas size
         function resizeCanvas() {
+            // Phones are portrait-only: while turned sideways the canvas keeps its portrait size
+            if (isLandscapeBlocked()) return;
+
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
@@ -973,6 +1038,8 @@
         }
 
         function measureTitleLetters() {
+            if (isLandscapeBlocked()) return;
+
             const titleElement = document.getElementById('title');
             fitTitleToWidth(titleElement);
             const spans = titleElement.querySelectorAll('span[data-i]');
@@ -1037,6 +1104,10 @@
         // Cached: this is called per ball / per collision, refreshed on resize/rotate.
         let cachedMobile = detectMobileOrTablet();
 
+        function bounceFactor(base) {
+            return cachedMobile ? Math.min(0.98, base * MOBILE_BOUNCE_BOOST) : base;
+        }
+
         function isMobileOrTablet() {
             return cachedMobile;
         }
@@ -1045,12 +1116,32 @@
             return isMobileOrTablet() ? MOBILE_MAX_BALLS : MAX_BALLS;
         }
 
+        function isLandscapeBlocked() {
+            return cachedMobile && window.innerWidth > window.innerHeight;
+        }
+
         function updateDeviceLayout() {
             cachedMobile = detectMobileOrTablet();
-            const portraitLayout = window.innerHeight > window.innerWidth && window.innerWidth <= 900;
 
             document.body.classList.toggle('mobile-device', cachedMobile);
+            document.body.classList.toggle('landscape-blocked', isLandscapeBlocked());
+
+            // Turned sideways: leave the portrait layout exactly as it was
+            if (isLandscapeBlocked()) return;
+
+            const portraitLayout = window.innerHeight > window.innerWidth && window.innerWidth <= 900;
             document.body.classList.toggle('portrait-layout', portraitLayout);
+        }
+
+        // Only honoured in fullscreen / installed apps; otherwise the "turn back" overlay does the job
+        function lockPortrait() {
+            if (!cachedMobile || !screen.orientation || !screen.orientation.lock) return;
+
+            try {
+                screen.orientation.lock('portrait').catch(() => {});
+            } catch (error) {
+                // Not supported here.
+            }
         }
 
         resizeCanvas();
@@ -1154,25 +1245,25 @@
                     // Bounce from the edges with better boundary handling
                     if (this.x + this.radius > canvas.width) {
                         this.x = canvas.width - this.radius;
-                        this.vx = -Math.abs(this.vx) * 0.8; // Ensure bounce away from wall
+                        this.vx = -Math.abs(this.vx) * bounceFactor(0.8); // Ensure bounce away from wall
                         // Small controlled randomness only
                         this.vy += (Math.random() - 0.5) * 0.5;
                     }
                     if (this.x - this.radius < 0) {
                         this.x = this.radius;
-                        this.vx = Math.abs(this.vx) * 0.8; // Ensure bounce away from wall
+                        this.vx = Math.abs(this.vx) * bounceFactor(0.8); // Ensure bounce away from wall
                         // Small controlled randomness only
                         this.vy += (Math.random() - 0.5) * 0.5;
                     }
                     if (this.y + this.radius > canvas.height) {
                         this.y = canvas.height - this.radius;
-                        this.vy = -Math.abs(this.vy) * 0.7; // Slightly less bouncy on ground
+                        this.vy = -Math.abs(this.vy) * bounceFactor(0.7); // Slightly less bouncy on ground
                         // Small controlled randomness only
                         this.vx += (Math.random() - 0.5) * 0.5;
                     }
                     if (this.y - this.radius < 0) {
                         this.y = this.radius;
-                        this.vy = Math.abs(this.vy) * 0.8; // Ensure bounce away from ceiling
+                        this.vy = Math.abs(this.vy) * bounceFactor(0.8); // Ensure bounce away from ceiling
                         // Small controlled randomness only
                         this.vx += (Math.random() - 0.5) * 0.5;
                     }
@@ -1454,6 +1545,7 @@
             }
             ensureAudio();
             startBackgroundMusic();
+            lockPortrait();
             incrementTotalPlays();
             
             gameStarted = true;
@@ -2115,13 +2207,15 @@
         function autoChooseWinner() {
             const colorCounts = countLetterColors();
             const namedScores = [];
-            
-            getActiveColors().forEach(color => {
-                if (colorCounts[color] > 0 && playerNames[color] && playerNames[color].trim() !== '') {
-                    namedScores.push({ color, score: colorCounts[color] });
+
+            // Players without a typed name are called "Player 1", "Player 2", ... like the input placeholder
+            getActiveColors().forEach((color, index) => {
+                if (colorCounts[color] > 0) {
+                    const typedName = (playerNames[color] || '').trim();
+                    namedScores.push({ color, score: colorCounts[color], name: typedName || `Player ${index + 1}` });
                 }
             });
-            
+
             if (namedScores.length === 0) {
                 gameEnded = true;
                 enableStartButton();
@@ -2140,7 +2234,7 @@
 
             const winner = leaders[0];
             const winningColor = winner.color;
-            const winnerName = playerNames[winningColor];
+            const winnerName = winner.name;
             const letterCount = winner.score;
             
             showWinner(winnerName, `${letterCount} letter${letterCount !== 1 ? 's' : ''} conquered`, winningColor);
@@ -2565,10 +2659,11 @@
                 const finalVx2 = ((ball2.radius - ball1.radius) * vx2 + 2 * ball1.radius * vx1) / (ball1.radius + ball2.radius);
                 
                 // Simple collision response without chaos multipliers
-                ball1.vx = (finalVx1 * cos - vy1 * sin) * 0.9;
-                ball1.vy = (vy1 * cos + finalVx1 * sin) * 0.9;
-                ball2.vx = (finalVx2 * cos - vy2 * sin) * 0.9;
-                ball2.vy = (vy2 * cos + finalVx2 * sin) * 0.9;
+                const restitution = bounceFactor(0.9);
+                ball1.vx = (finalVx1 * cos - vy1 * sin) * restitution;
+                ball1.vy = (vy1 * cos + finalVx1 * sin) * restitution;
+                ball2.vx = (finalVx2 * cos - vy2 * sin) * restitution;
+                ball2.vy = (vy2 * cos + finalVx2 * sin) * restitution;
                 
                 // Push balls apart
                 const overlap = minDistance - distance;
@@ -2960,7 +3055,17 @@
         // Game loop
         function animate(timestamp) {
             // Resize/rotate events can arrive late or get lost on phones, so also check every frame
-            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) refreshLayout();
+            const blocked = isLandscapeBlocked();
+            if (blocked !== document.body.classList.contains('landscape-blocked') ||
+                (!blocked && (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight))) {
+                refreshLayout();
+            }
+
+            if (blocked) {
+                // Paused while turned sideways; the overlay tells the player to rotate back
+                requestAnimationFrame(animate);
+                return;
+            }
 
             // Canvas leegmaken met zwarte achtergrond
             ctx.fillStyle = '#000';
