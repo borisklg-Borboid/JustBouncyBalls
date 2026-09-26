@@ -2,12 +2,17 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Just Bouncy Balls</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap" rel="stylesheet">
     <style>
+        html {
+            overflow: hidden;
+            overscroll-behavior: none;
+        }
+
         body {
             margin: 0;
             padding: 0;
@@ -594,14 +599,22 @@
                 gap: 10px;
             }
 
+            /* Same finger-sized footprint as the +/- player buttons */
             .ball-btn {
-                width: 56px;
-                height: 56px;
-                font-size: 11px;
+                width: 36px;
+                height: 36px;
+                font-size: 9px;
                 box-shadow:
-                    0 0 12px #00ff00,
-                    0 0 26px rgba(0, 255, 0, 0.62),
-                    inset -9px -11px 14px rgba(0, 0, 0, 0.55);
+                    0 0 8px #00ff00,
+                    0 0 16px rgba(0, 255, 0, 0.6),
+                    inset -5px -6px 8px rgba(0, 0, 0, 0.55);
+            }
+
+            #resetBtn.ball-btn {
+                box-shadow:
+                    0 0 8px #00ff9d,
+                    0 0 16px rgba(0, 255, 157, 0.6),
+                    inset -5px -6px 8px rgba(0, 0, 0, 0.55);
             }
 
             #winnerResetBtn {
@@ -723,17 +736,17 @@
         /* Portrait phone: title spans the width (sized in JS), UI packed into the top corners
            so the playfield stays clean for screen recordings. */
         body.portrait-layout #controls {
-            top: calc(max(8px, env(safe-area-inset-top)) + 58px);
+            top: calc(max(8px, env(safe-area-inset-top)) + 56px);
             left: auto;
             right: max(10px, env(safe-area-inset-right));
             transform: none;
             gap: 8px;
         }
 
-        body.portrait-layout .ball-btn {
-            width: 50px;
-            height: 50px;
-            font-size: 10px;
+        body.portrait-layout #title {
+            width: max-content;
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
         }
 
         body.portrait-layout #nameInputArea {
@@ -937,16 +950,26 @@
         let titleLetterBoxes = [];
         let titleZone = null; // union of all letter boxes, used to skip far-away balls quickly
 
-        // Portrait: scale the title so it spans the screen width with a small margin on both sides
+        // Portrait: scale the title so it spans the screen width with a small margin on both sides.
+        // Measures the rendered width and iterates, so font swaps or browser text scaling can't leave it too wide.
+        function getTitleTargetWidth() {
+            const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+            return viewportWidth - Math.max(24, viewportWidth * 0.08) * 2;
+        }
+
         function fitTitleToWidth(titleElement) {
             titleElement.style.fontSize = '';
             if (!document.body.classList.contains('portrait-layout')) return;
 
-            const referenceSize = 100;
-            titleElement.style.fontSize = referenceSize + 'px';
-            const margin = Math.max(16, window.innerWidth * 0.05);
-            const targetWidth = window.innerWidth - margin * 2;
-            titleElement.style.fontSize = (referenceSize * targetWidth / titleElement.offsetWidth) + 'px';
+            const targetWidth = getTitleTargetWidth();
+            let size = 40;
+
+            for (let i = 0; i < 5; i++) {
+                titleElement.style.fontSize = size + 'px';
+                const width = titleElement.getBoundingClientRect().width;
+                if (!width || Math.abs(width - targetWidth) < 2) break;
+                size *= targetWidth / width;
+            }
         }
 
         function measureTitleLetters() {
@@ -960,14 +983,18 @@
             const originX = canvas.width / 2 - titleElement.offsetWidth / 2;
             const startY = canvas.height / 2 - letterHeight / 2;
 
+            // Phone balls are small enough to slip through the gaps, so there the boxes fill the
+            // whole letter advance and touch their neighbours; desktop keeps a small margin.
+            const sideMargin = (isMobileOrTablet() || document.body.classList.contains('portrait-layout')) ? 0 : 0.05;
+
             titleLetterBoxes = Array.from(spans).map(span => {
                 const x = originX + span.offsetLeft;
                 const width = span.offsetWidth;
 
                 return {
                     index: Number(span.dataset.i),
-                    left: x + width * 0.05,
-                    right: x + width * 0.95,
+                    left: x + width * sideMargin,
+                    right: x + width * (1 - sideMargin),
                     top: startY + letterHeight * 0.05,
                     bottom: startY + letterHeight * 0.95
                 };
@@ -1033,13 +1060,28 @@
             updateDeviceLayout();
             measureTitleLetters();
         });
+        function refreshLayout() {
+            resizeCanvas();
+            updateDeviceLayout();
+            measureTitleLetters();
+        }
+
         window.addEventListener('orientationchange', () => {
-            setTimeout(() => {
-                resizeCanvas();
-                updateDeviceLayout();
-                measureTitleLetters();
-            }, 180);
+            // The final size arrives late after a rotation, so refresh a few times
+            [100, 350, 800].forEach(delay => setTimeout(refreshLayout, delay));
         });
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', refreshLayout);
+        }
+        if (window.ResizeObserver) {
+            new ResizeObserver(() => {
+                const titleElement = document.getElementById('title');
+                if (!document.body.classList.contains('portrait-layout')) return;
+                if (Math.abs(titleElement.getBoundingClientRect().width - getTitleTargetWidth()) > 3) {
+                    measureTitleLetters();
+                }
+            }).observe(document.getElementById('title'));
+        }
         if (document.fonts) {
             document.fonts.ready.then(measureTitleLetters);
             document.fonts.addEventListener('loadingdone', measureTitleLetters);
@@ -1070,7 +1112,7 @@
                 ? MOBILE_MAX_PLAYERS
                 : MAX_PLAYERS;
         }
-        const MOBILE_BALL_SCALE = 0.32;
+        const MOBILE_BALL_SCALE = 0.5;
         let activePlayerCount = STARTING_PLAYERS;
         let selectedPlayerColors = neonColors.slice(0, STARTING_PLAYERS);
         
@@ -2351,7 +2393,7 @@
         function checkGameEnd(timestamp) {
             if (!gameStarted || gameEnded || balls.length < getMaxBalls()) return;
 
-            finaleExtraZone = document.body.classList.contains('portrait-layout')
+            finaleExtraZone = usesStackedPile()
                 ? 1.3 * balls.reduce((sum, ball) => sum + Math.PI * ball.radius * ball.radius, 0) / canvas.width
                 : 0;
 
@@ -2566,6 +2608,65 @@
         }
 
         // Only balls after `index` in the cell, so every pair is handled once
+        // Phones: after the normal collisions, push overlapping balls apart (positions only, no
+        // shrinking/spawning) so the settled balls stack into a heap instead of one overlapping line.
+        function usesStackedPile() {
+            return cachedMobile || document.body.classList.contains('portrait-layout');
+        }
+
+        const PILE_RELAX_ITERATIONS = 2;
+
+        function relaxOverlaps(count, cols, rows, cellSize) {
+            for (let i = 0; i < count; i++) {
+                const a = balls[i];
+                if (a.isDragging) continue;
+
+                const cx = Math.min(cols - 1, Math.max(0, (a.x / cellSize) | 0));
+                const cy = Math.min(rows - 1, Math.max(0, (a.y / cellSize) | 0));
+
+                for (let ny = Math.max(0, cy - 1); ny <= Math.min(rows - 1, cy + 1); ny++) {
+                    for (let nx = Math.max(0, cx - 1); nx <= Math.min(cols - 1, cx + 1); nx++) {
+                        for (let j = gridHead[ny * cols + nx]; j !== -1; j = gridNext[j]) {
+                            if (j <= i) continue;
+
+                            const b = balls[j];
+                            if (b.isDragging) continue;
+
+                            const dx = b.x - a.x;
+                            const dy = b.y - a.y;
+                            const minDistance = a.radius + b.radius;
+                            const distanceSquared = dx * dx + dy * dy;
+                            if (distanceSquared >= minDistance * minDistance || distanceSquared === 0) continue;
+
+                            const distance = Math.sqrt(distanceSquared);
+                            const normalX = dx / distance;
+                            const normalY = dy / distance;
+                            const push = (minDistance - distance) * 0.5;
+
+                            a.x -= normalX * push;
+                            a.y -= normalY * push;
+                            b.x += normalX * push;
+                            b.y += normalY * push;
+
+                            // Resting contact: cancel the speed towards each other so the heap stays calm
+                            const approach = (b.vx - a.vx) * normalX + (b.vy - a.vy) * normalY;
+                            if (approach < 0) {
+                                a.vx += normalX * approach * 0.5;
+                                a.vy += normalY * approach * 0.5;
+                                b.vx -= normalX * approach * 0.5;
+                                b.vy -= normalY * approach * 0.5;
+                            }
+
+                            a.x = Math.max(a.radius, Math.min(canvas.width - a.radius, a.x));
+                            a.y = Math.max(a.radius, Math.min(canvas.height - a.radius, a.y));
+                            b.x = Math.max(b.radius, Math.min(canvas.width - b.radius, b.x));
+                            b.y = Math.max(b.radius, Math.min(canvas.height - b.radius, b.y));
+                        }
+                    }
+                }
+            }
+        }
+
         function collideWithCell(ball, index, cell) {
             for (let j = gridHead[cell]; j !== -1; j = gridNext[j]) {
                 if (j > index) collidePair(ball, balls[j]);
@@ -2610,6 +2711,12 @@
                     for (let nx = Math.max(0, cx - 1); nx <= Math.min(cols - 1, cx + 1); nx++) {
                         collideWithCell(ball, i, ny * cols + nx);
                     }
+                }
+            }
+
+            if (usesStackedPile()) {
+                for (let k = 0; k < PILE_RELAX_ITERATIONS; k++) {
+                    relaxOverlaps(count, cols, rows, cellSize);
                 }
             }
 
@@ -2816,33 +2923,45 @@
         // Many balls: plain solid circles, one path and one fill per colour
         const ballDrawGroups = new Map();
 
+        // Batches keep the array (spawn) order so overlapping balls still show a mix of colours,
+        // instead of the last colour drawn covering the whole pile.
+        const DRAW_BATCH_SIZE = 32;
+
         function drawBallsSimple() {
-            ballDrawGroups.forEach(group => { group.length = 0; });
+            for (let start = 0; start < balls.length; start += DRAW_BATCH_SIZE) {
+                const end = Math.min(start + DRAW_BATCH_SIZE, balls.length);
 
-            for (const ball of balls) {
-                let group = ballDrawGroups.get(ball.color);
-                if (!group) {
-                    group = [];
-                    ballDrawGroups.set(ball.color, group);
+                ballDrawGroups.forEach(group => { group.length = 0; });
+
+                for (let i = start; i < end; i++) {
+                    const ball = balls[i];
+                    let group = ballDrawGroups.get(ball.color);
+                    if (!group) {
+                        group = [];
+                        ballDrawGroups.set(ball.color, group);
+                    }
+                    group.push(ball);
                 }
-                group.push(ball);
+
+                ballDrawGroups.forEach((group, color) => {
+                    if (group.length === 0) return;
+
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    for (const ball of group) {
+                        ctx.moveTo(ball.x + ball.radius, ball.y);
+                        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                    }
+                    ctx.fill();
+                });
             }
-
-            ballDrawGroups.forEach((group, color) => {
-                if (group.length === 0) return;
-
-                ctx.fillStyle = color;
-                ctx.beginPath();
-                for (const ball of group) {
-                    ctx.moveTo(ball.x + ball.radius, ball.y);
-                    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-                }
-                ctx.fill();
-            });
         }
 
         // Game loop
         function animate(timestamp) {
+            // Resize/rotate events can arrive late or get lost on phones, so also check every frame
+            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) refreshLayout();
+
             // Canvas leegmaken met zwarte achtergrond
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
