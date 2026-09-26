@@ -744,6 +744,7 @@
         }
 
         body.portrait-layout #title {
+            top: 60%;
             width: max-content;
             -webkit-text-size-adjust: 100%;
             text-size-adjust: 100%;
@@ -969,7 +970,7 @@
         const MUSIC_DUCKED_VOLUME = 0.035;
         const MAX_BALLS = 2000;
         const MOBILE_MAX_BALLS = 500;
-        const MOBILE_BOUNCE_BOOST = 1.06; // a little extra bounce on phones for a crazier feel
+        const MOBILE_BOUNCE_BOOST = 1.1; // a little extra bounce on phones for a crazier feel
         const MOBILE_SIMPLE_DRAW_BALLS = 120; // above this, skip glow/shadow drawing on phones
         const TITLE_BOUNCE_MAX_SPEED = 14;
         const TITLE_BOUNCE_MAX_SPEED_MOBILE = 7;
@@ -1048,7 +1049,9 @@
             const fontSize = parseFloat(getComputedStyle(titleElement).fontSize);
             const letterHeight = fontSize * 0.85;
             const originX = canvas.width / 2 - titleElement.offsetWidth / 2;
-            const startY = canvas.height / 2 - letterHeight / 2;
+            // In portrait the title sits lower (60% down) to keep clear of the controls at the top
+            const centerY = canvas.height * (document.body.classList.contains('portrait-layout') ? 0.6 : 0.5);
+            const startY = centerY - letterHeight / 2;
 
             // Phone balls are small enough to slip through the gaps, so there the boxes fill the
             // whole letter advance and touch their neighbours; desktop keeps a small margin.
