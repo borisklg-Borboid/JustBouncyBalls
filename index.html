@@ -1134,6 +1134,21 @@
 
             const portraitLayout = window.innerHeight > window.innerWidth && window.innerWidth <= 900;
             document.body.classList.toggle('portrait-layout', portraitLayout);
+            alignControlsUnderMusic();
+        }
+
+        // Portrait: Start/Reset sit exactly centred under the music player
+        function alignControlsUnderMusic() {
+            const controls = document.getElementById('controls');
+            controls.style.left = '';
+            controls.style.right = '';
+            controls.style.transform = '';
+            if (!document.body.classList.contains('portrait-layout')) return;
+
+            const player = document.getElementById('musicPlayer').getBoundingClientRect();
+            controls.style.left = (player.left + player.width / 2) + 'px';
+            controls.style.right = 'auto';
+            controls.style.transform = 'translateX(-50%)';
         }
 
         // Only honoured in fullscreen / installed apps; otherwise the "turn back" overlay does the job
