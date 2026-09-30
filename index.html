@@ -973,7 +973,7 @@
         const MOBILE_MAX_BALLS = 500;
         const MOBILE_BOUNCE_BOOST = 1.1; // a little extra bounce on phones for a crazier feel
         const MOBILE_SIMPLE_DRAW_BALLS = 120; // above this, skip glow/shadow drawing on phones
-        const TITLE_BOUNCE_MAX_SPEED = 18;
+        const TITLE_BOUNCE_MAX_SPEED = 16;
         const TITLE_BOUNCE_MAX_SPEED_MOBILE = 7;
         const DESKTOP_TITLE_ESCAPE_HITS = 2;
         const DESKTOP_TITLE_ESCAPE_FRAMES = 12;
@@ -1304,7 +1304,7 @@
                 this.radius = (radius || Math.random() * 12 + 8) * ballScale;
                 const availableColors = getActiveColors();
                 this.color = color || availableColors[Math.floor(Math.random() * availableColors.length)];
-                const initialSpeed = cachedMobile ? 4 : 5.2;
+                const initialSpeed = cachedMobile ? 4 : 4.7;
                 this.vx = (Math.random() - 0.5) * initialSpeed;
                 this.vy = (Math.random() - 0.5) * initialSpeed;
                 this.isDragging = false;
@@ -1539,28 +1539,28 @@
 
                 if (side === 'left') {
                     this.x = box.left - this.radius - 3;
-                    this.vx = -Math.abs(this.vx) * 1.35 - 2;
+                    this.vx = -Math.abs(this.vx) * 1.2 - 1.5;
                 } else if (side === 'right') {
                     this.x = box.right + this.radius + 3;
-                    this.vx = Math.abs(this.vx) * 1.35 + 2;
+                    this.vx = Math.abs(this.vx) * 1.2 + 1.5;
                 } else if (side === 'top') {
                     this.y = box.top - this.radius - 3;
-                    this.vy = -Math.abs(this.vy) * 1.35 - 2;
+                    this.vy = -Math.abs(this.vy) * 1.2 - 1.5;
                 } else {
                     this.y = box.bottom + this.radius + 3;
-                    this.vy = Math.abs(this.vy) * 1.35 + 2;
+                    this.vy = Math.abs(this.vy) * 1.2 + 1.5;
                 }
 
-                this.vx += (Math.random() - 0.5) * 3.5;
-                this.vy += (Math.random() - 0.5) * 3;
+                this.vx += (Math.random() - 0.5) * 2.4;
+                this.vy += (Math.random() - 0.5) * 2;
                 if (side === 'top') {
-                    this.vy = Math.min(this.vy, -8);
-                    if (Math.abs(this.vx) < 2.5) this.vx = Math.random() < 0.5 ? -2.5 : 2.5;
+                    this.vy = Math.min(this.vy, -6.5);
+                    if (Math.abs(this.vx) < 2) this.vx = Math.random() < 0.5 ? -2 : 2;
                 } else if (side === 'bottom') {
-                    this.vy = Math.max(this.vy, 7);
+                    this.vy = Math.max(this.vy, 5.5);
                 } else {
-                    this.vx = (side === 'left' ? -1 : 1) * Math.max(6, Math.abs(this.vx));
-                    this.vy = Math.min(this.vy, -4);
+                    this.vx = (side === 'left' ? -1 : 1) * Math.max(5, Math.abs(this.vx));
+                    this.vy = Math.min(this.vy, -3);
                 }
 
                 // A ball ricocheting between neighbouring letters gets a clear exit.
@@ -1569,8 +1569,8 @@
                 this.lastTitleHitFrame = collisionFrameCounter;
                 if (this.titleHitStreak >= DESKTOP_TITLE_ESCAPE_HITS && titleZone) {
                     this.y = titleZone.top - this.radius - 3;
-                    this.vx = (this.vx < 0 ? -1 : 1) * Math.max(6, Math.abs(this.vx));
-                    this.vy = -8;
+                    this.vx = (this.vx < 0 ? -1 : 1) * Math.max(5, Math.abs(this.vx));
+                    this.vy = -6.5;
                     this.titleHitStreak = 0;
                 }
 
@@ -2839,7 +2839,7 @@
                 const finalVx1 = ((ball1.radius - ball2.radius) * vx1 + 2 * ball2.radius * vx2) / (ball1.radius + ball2.radius);
                 const finalVx2 = ((ball2.radius - ball1.radius) * vx2 + 2 * ball1.radius * vx1) / (ball1.radius + ball2.radius);
                 
-                const restitution = bounceFactor(cachedMobile ? 0.9 : 1);
+                const restitution = bounceFactor(cachedMobile ? 0.9 : 0.96);
                 ball1.vx = (finalVx1 * cos - vy1 * sin) * restitution;
                 ball1.vy = (vy1 * cos + finalVx1 * sin) * restitution;
                 ball2.vx = (finalVx2 * cos - vy2 * sin) * restitution;
@@ -2847,7 +2847,7 @@
 
                 // Add a small sideways impulse to energetic desktop impacts.
                 if (!cachedMobile && gameStarted && balls.length < getMaxBalls() && Math.abs(vx1 - vx2) > 1.5) {
-                    const kick = (Math.random() - 0.5) * 0.45;
+                    const kick = (Math.random() - 0.5) * 0.25;
                     ball1.vx -= sin * kick;
                     ball1.vy += cos * kick;
                     ball2.vx += sin * kick;
@@ -3267,8 +3267,8 @@
             const direction = ball.x < gap.center ? -1 : 1;
             ball.x = gap.center + direction * Math.max(ball.radius + 4, (gap.right - gap.left) / 2 + 5);
             ball.y = titleZone.top - ball.radius - 5;
-            ball.vx = direction * Math.max(6 * force, Math.abs(ball.vx) + 2.5);
-            ball.vy = -Math.max(8 * force, Math.abs(ball.vy) + 3);
+            ball.vx = direction * Math.max(4.8 * force, Math.abs(ball.vx) + 2);
+            ball.vy = -Math.max(6.5 * force, Math.abs(ball.vy) + 2.5);
             ball.titleGapDwell = 0;
             ball.titleGapFrame = collisionFrameCounter;
         }
