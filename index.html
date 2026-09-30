@@ -964,6 +964,7 @@
         let activeStickyPairKey = null;
         let stickyHideTimer = null;
         const STICKY_DURATION_THRESHOLD_MS = 2000; // must stay glued for 2s before we even consider calling it out
+        const DESKTOP_STUCK_ESCAPE_MS = 650;
         const STICKY_STALE_MS = 120; // tolerate a few skipped frames (e.g. hasCollided lockout)
         const STICKY_CLEANUP_INTERVAL = 30;
         const MUSIC_BASE_VOLUME = 0.32;
@@ -972,8 +973,13 @@
         const MOBILE_MAX_BALLS = 500;
         const MOBILE_BOUNCE_BOOST = 1.1; // a little extra bounce on phones for a crazier feel
         const MOBILE_SIMPLE_DRAW_BALLS = 120; // above this, skip glow/shadow drawing on phones
-        const TITLE_BOUNCE_MAX_SPEED = 14;
+        const TITLE_BOUNCE_MAX_SPEED = 24;
         const TITLE_BOUNCE_MAX_SPEED_MOBILE = 7;
+        const DESKTOP_TITLE_ESCAPE_HITS = 2;
+        const DESKTOP_TITLE_ESCAPE_FRAMES = 12;
+        const DESKTOP_WORD_GAP_WIDTH = 24; // about one and a half of the smallest regular desktop ball
+        const DESKTOP_TITLE_GAP_REPEL_X = 28;
+        const DESKTOP_TITLE_GAP_REPEL_Y = 10;
         const SWOOSH_START_BALLS = 100;
         const FINALE_BLAST_PROGRESS = 0.75;
         const SUPABASE_URL = 'https://jcjnowvvfzcddfjkprbv.supabase.co';
@@ -1015,6 +1021,8 @@
         // they follow the real font size and glyph widths on every device.
         let titleLetterBoxes = [];
         let titleZone = null; // union of all letter boxes, used to skip far-away balls quickly
+        let desktopWordGaps = [];
+        let desktopTitleGaps = [];
 
         // Portrait: scale the title so it spans the screen width with a small margin on both sides.
         // Measures the rendered width and iterates, so font swaps or browser text scaling can't leave it too wide.
@@ -1042,9 +1050,26 @@
             if (isLandscapeBlocked()) return;
 
             const titleElement = document.getElementById('title');
+            titleElement.style.wordSpacing = '';
             fitTitleToWidth(titleElement);
             const spans = titleElement.querySelectorAll('span[data-i]');
             if (spans.length === 0) return;
+
+            // Size the visible word spaces from the actual font so the gaps cannot become parking spots.
+            const sideMargin = (isMobileOrTablet() || document.body.classList.contains('portrait-layout')) ? 0 : -0.12;
+            if (!cachedMobile) {
+                let widestGap = 0;
+                for (let i = 1; i < spans.length; i++) {
+                    if (Number(spans[i].dataset.i) - Number(spans[i - 1].dataset.i) !== 2) continue;
+                    const left = spans[i - 1];
+                    const right = spans[i];
+                    const gap = right.offsetLeft - (left.offsetLeft + left.offsetWidth);
+                    widestGap = Math.max(widestGap, gap);
+                }
+                if (widestGap > DESKTOP_WORD_GAP_WIDTH) {
+                    titleElement.style.wordSpacing = `${DESKTOP_WORD_GAP_WIDTH - widestGap}px`;
+                }
+            }
 
             const fontSize = parseFloat(getComputedStyle(titleElement).fontSize);
             const letterHeight = fontSize * 0.85;
@@ -1055,27 +1080,67 @@
 
             // Phone balls are small enough to slip through the gaps, so there the boxes fill the
             // whole letter advance and touch their neighbours; desktop keeps a small margin.
-            const sideMargin = (isMobileOrTablet() || document.body.classList.contains('portrait-layout')) ? 0 : 0.05;
-
             titleLetterBoxes = Array.from(spans).map(span => {
                 const x = originX + span.offsetLeft;
                 const width = span.offsetWidth;
 
                 return {
                     index: Number(span.dataset.i),
+                    rawLeft: x,
+                    rawRight: x + width,
                     left: x + width * sideMargin,
                     right: x + width * (1 - sideMargin),
                     top: startY + letterHeight * 0.05,
-                    bottom: startY + letterHeight * 0.95
+                    bottom: startY + letterHeight * 0.95,
+                    baseTop: startY + letterHeight * 0.05,
+                    baseBottom: startY + letterHeight * 0.95
                 };
             });
+
+            desktopWordGaps = [];
+            desktopTitleGaps = [];
+            if (!cachedMobile) {
+                for (let i = 1; i < titleLetterBoxes.length; i++) {
+                    const left = titleLetterBoxes[i - 1];
+                    const right = titleLetterBoxes[i];
+                    const rawGap = right.rawLeft - left.rawRight;
+                    if (rawGap > 1) {
+                        const gap = {
+                            left: left.rawRight,
+                            right: right.rawLeft,
+                            center: (left.rawRight + right.rawLeft) / 2,
+                            repelLeft: left.rawRight - DESKTOP_TITLE_GAP_REPEL_X,
+                            repelRight: right.rawLeft + DESKTOP_TITLE_GAP_REPEL_X,
+                            isWordGap: right.index - left.index === 2
+                        };
+                        desktopTitleGaps.push(gap);
+                        if (gap.isWordGap) desktopWordGaps.push(gap);
+                    }
+                }
+            }
 
             titleZone = {
                 left: Math.min(...titleLetterBoxes.map(box => box.left)),
                 right: Math.max(...titleLetterBoxes.map(box => box.right)),
                 top: startY + letterHeight * 0.05,
-                bottom: startY + letterHeight * 0.95
+                bottom: startY + letterHeight * 0.95,
+                baseTop: startY + letterHeight * 0.05,
+                baseBottom: startY + letterHeight * 0.95
             };
+            updateDesktopTitleMotion();
+        }
+
+        function updateDesktopTitleMotion() {
+            if (cachedMobile || !titleZone) return;
+            const rect = document.getElementById('title').getBoundingClientRect();
+            const centerY = canvas.height * (document.body.classList.contains('portrait-layout') ? 0.6 : 0.5);
+            const offset = rect.top + rect.height / 2 - centerY;
+            titleZone.top = titleZone.baseTop + offset;
+            titleZone.bottom = titleZone.baseBottom + offset;
+            for (const box of titleLetterBoxes) {
+                box.top = box.baseTop + offset;
+                box.bottom = box.baseBottom + offset;
+            }
         }
 
         function getTitleBounds() {
@@ -1239,20 +1304,27 @@
                 this.radius = (radius || Math.random() * 12 + 8) * ballScale;
                 const availableColors = getActiveColors();
                 this.color = color || availableColors[Math.floor(Math.random() * availableColors.length)];
-                this.vx = (Math.random() - 0.5) * 4;
-                this.vy = (Math.random() - 0.5) * 4;
+                const initialSpeed = cachedMobile ? 4 : 6.5;
+                this.vx = (Math.random() - 0.5) * initialSpeed;
+                this.vy = (Math.random() - 0.5) * initialSpeed;
                 this.isDragging = false;
                 this.dragOffsetX = 0;
                 this.dragOffsetY = 0;
                 this.minRadius = 6 * ballScale;
                 this.glowIntensity = Math.random() * 0.5 + 0.5;
                 this.hasCollided = false; // Voorkomt meerdere botsingen per frame
+                this.lastTitleHitFrame = -Infinity;
+                this.titleHitStreak = 0;
+                this.titleGapFrame = -Infinity;
+                this.titleGapDwell = 0;
             }
             
             update() {
                 if (!this.isDragging) {
+                    const previousX = this.x;
+                    const previousY = this.y;
                     // Gravity
-                    this.vy += 0.15;
+                    this.vy += cachedMobile ? 0.15 : 0.18;
                     
                     // Update position
                     this.x += this.vx;
@@ -1263,31 +1335,31 @@
                     // Bounce from the edges with better boundary handling
                     if (this.x + this.radius > canvas.width) {
                         this.x = canvas.width - this.radius;
-                        this.vx = -Math.abs(this.vx) * bounceFactor(0.8); // Ensure bounce away from wall
+                        this.vx = -Math.abs(this.vx) * bounceFactor(cachedMobile ? 0.8 : 0.92); // Ensure bounce away from wall
                         // Small controlled randomness only
-                        this.vy += (Math.random() - 0.5) * 0.5;
+                        this.vy += (Math.random() - 0.5) * (cachedMobile ? 0.5 : 1.2);
                     }
                     if (this.x - this.radius < 0) {
                         this.x = this.radius;
-                        this.vx = Math.abs(this.vx) * bounceFactor(0.8); // Ensure bounce away from wall
+                        this.vx = Math.abs(this.vx) * bounceFactor(cachedMobile ? 0.8 : 0.92); // Ensure bounce away from wall
                         // Small controlled randomness only
-                        this.vy += (Math.random() - 0.5) * 0.5;
+                        this.vy += (Math.random() - 0.5) * (cachedMobile ? 0.5 : 1.2);
                     }
                     if (this.y + this.radius > canvas.height) {
                         this.y = canvas.height - this.radius;
-                        this.vy = -Math.abs(this.vy) * bounceFactor(0.7); // Slightly less bouncy on ground
+                        this.vy = -Math.abs(this.vy) * bounceFactor(cachedMobile ? 0.7 : 0.88);
                         // Small controlled randomness only
-                        this.vx += (Math.random() - 0.5) * 0.5;
+                        this.vx += (Math.random() - 0.5) * (cachedMobile ? 0.5 : 1.2);
                     }
                     if (this.y - this.radius < 0) {
                         this.y = this.radius;
-                        this.vy = Math.abs(this.vy) * bounceFactor(0.8); // Ensure bounce away from ceiling
+                        this.vy = Math.abs(this.vy) * bounceFactor(cachedMobile ? 0.8 : 0.92); // Ensure bounce away from ceiling
                         // Small controlled randomness only
-                        this.vx += (Math.random() - 0.5) * 0.5;
+                        this.vx += (Math.random() - 0.5) * (cachedMobile ? 0.5 : 1.2);
                     }
                     
                     // Title collision detection
-                    this.checkTitleCollision();
+                    this.checkTitleCollision(previousX, previousY);
                     
                     // Wrijving
                     this.vx *= 0.999;
@@ -1310,7 +1382,7 @@
                 return topOfBall >= bottomZoneTop;
             }
             
-            checkTitleCollision() {
+            checkTitleCollision(previousX = this.x, previousY = this.y) {
                 // Balls that can't reach the title this frame skip the per-letter tests
                 if (titleZone) {
                     const reach = this.radius + Math.abs(this.vx) + Math.abs(this.vy) + 2;
@@ -1333,12 +1405,18 @@
                     const ballCenterY = this.y;
                     const ballRadius = this.radius;
                     
-                    // Expanded collision detection - check both current and next position
-                    const nextX = ballCenterX + this.vx;
-                    const nextY = ballCenterY + this.vy;
+                    // Desktop checks the path actually travelled; mobile keeps its predictive check.
+                    const nextX = cachedMobile ? ballCenterX + this.vx : previousX;
+                    const nextY = cachedMobile ? ballCenterY + this.vy : previousY;
                     
                     // Check collision with current position
                     let collision = this.checkRectangleCollision(ballCenterX, ballCenterY, ballRadius, letterLeft, letterRight, letterTop, letterBottom);
+
+                    // A desktop ball that has already left this letter must not bounce back into it.
+                    if (!cachedMobile && !collision &&
+                        this.checkRectangleCollision(previousX, previousY, ballRadius, letterLeft, letterRight, letterTop, letterBottom)) {
+                        continue;
+                    }
                     
                     // Also check collision with next position to catch fast-moving balls
                     if (!collision) {
@@ -1359,6 +1437,11 @@
                             updateTitleColor();
                         }
                         playPopcornPop();
+
+                        if (!cachedMobile) {
+                            this.bounceOffDesktopTitle(box, previousX, previousY);
+                            return;
+                        }
                         
                         // Determine collision direction based on ball position relative to letter center
                         const letterCenterX = (letterLeft + letterRight) / 2;
@@ -1416,6 +1499,85 @@
 
                         return; // Exit after first collision
                     }
+                }
+            }
+
+            bounceOffDesktopTitle(box, previousX, previousY) {
+                const dx = this.x - previousX;
+                const dy = this.y - previousY;
+                let side = null;
+                let entryTime = -Infinity;
+                const considerEntry = (candidate, time) => {
+                    if (time >= 0 && time <= 1 && time > entryTime) {
+                        side = candidate;
+                        entryTime = time;
+                    }
+                };
+
+                // The last face entered on the travelled path is the face we hit.
+                if (dx > 0 && previousX + this.radius <= box.left) {
+                    considerEntry('left', (box.left - this.radius - previousX) / dx);
+                } else if (dx < 0 && previousX - this.radius >= box.right) {
+                    considerEntry('right', (box.right + this.radius - previousX) / dx);
+                }
+                if (dy > 0 && previousY + this.radius <= box.top) {
+                    considerEntry('top', (box.top - this.radius - previousY) / dy);
+                } else if (dy < 0 && previousY - this.radius >= box.bottom) {
+                    considerEntry('bottom', (box.bottom + this.radius - previousY) / dy);
+                }
+
+                if (!side) {
+                    // Already overlapping: choose the shortest route out of the letter.
+                    const overlaps = [
+                        ['left', this.x + this.radius - box.left],
+                        ['right', box.right - this.x + this.radius],
+                        ['top', this.y + this.radius - box.top],
+                        ['bottom', box.bottom - this.y + this.radius]
+                    ].filter(([, overlap]) => overlap >= 0);
+                    side = overlaps.reduce((best, current) => current[1] < best[1] ? current : best, ['top', Infinity])[0];
+                }
+
+                if (side === 'left') {
+                    this.x = box.left - this.radius - 3;
+                    this.vx = -Math.abs(this.vx) * 1.65 - 3.5;
+                } else if (side === 'right') {
+                    this.x = box.right + this.radius + 3;
+                    this.vx = Math.abs(this.vx) * 1.65 + 3.5;
+                } else if (side === 'top') {
+                    this.y = box.top - this.radius - 3;
+                    this.vy = -Math.abs(this.vy) * 1.65 - 3.5;
+                } else {
+                    this.y = box.bottom + this.radius + 3;
+                    this.vy = Math.abs(this.vy) * 1.65 + 3.5;
+                }
+
+                this.vx += (Math.random() - 0.5) * 6;
+                this.vy += (Math.random() - 0.5) * 5;
+                if (side === 'top') {
+                    this.vy = Math.min(this.vy, -12);
+                    if (Math.abs(this.vx) < 3.5) this.vx = Math.random() < 0.5 ? -3.5 : 3.5;
+                } else if (side === 'bottom') {
+                    this.vy = Math.max(this.vy, 10);
+                } else {
+                    this.vx = (side === 'left' ? -1 : 1) * Math.max(9, Math.abs(this.vx));
+                    this.vy = Math.min(this.vy, -7);
+                }
+
+                // A ball ricocheting between neighbouring letters gets a clear exit.
+                this.titleHitStreak = collisionFrameCounter - this.lastTitleHitFrame <= DESKTOP_TITLE_ESCAPE_FRAMES
+                    ? this.titleHitStreak + 1 : 1;
+                this.lastTitleHitFrame = collisionFrameCounter;
+                if (this.titleHitStreak >= DESKTOP_TITLE_ESCAPE_HITS && titleZone) {
+                    this.y = titleZone.top - this.radius - 3;
+                    this.vx = (this.vx < 0 ? -1 : 1) * Math.max(8, Math.abs(this.vx));
+                    this.vy = -12;
+                    this.titleHitStreak = 0;
+                }
+
+                const speed = Math.hypot(this.vx, this.vy);
+                if (speed > TITLE_BOUNCE_MAX_SPEED) {
+                    this.vx *= TITLE_BOUNCE_MAX_SPEED / speed;
+                    this.vy *= TITLE_BOUNCE_MAX_SPEED / speed;
                 }
             }
             
@@ -2677,12 +2839,20 @@
                 const finalVx1 = ((ball1.radius - ball2.radius) * vx1 + 2 * ball2.radius * vx2) / (ball1.radius + ball2.radius);
                 const finalVx2 = ((ball2.radius - ball1.radius) * vx2 + 2 * ball1.radius * vx1) / (ball1.radius + ball2.radius);
                 
-                // Simple collision response without chaos multipliers
-                const restitution = bounceFactor(0.9);
+                const restitution = bounceFactor(cachedMobile ? 0.9 : 1);
                 ball1.vx = (finalVx1 * cos - vy1 * sin) * restitution;
                 ball1.vy = (vy1 * cos + finalVx1 * sin) * restitution;
                 ball2.vx = (finalVx2 * cos - vy2 * sin) * restitution;
                 ball2.vy = (vy2 * cos + finalVx2 * sin) * restitution;
+
+                // Add a small sideways impulse to energetic desktop impacts.
+                if (!cachedMobile && gameStarted && balls.length < getMaxBalls() && Math.abs(vx1 - vx2) > 1.5) {
+                    const kick = (Math.random() - 0.5) * 1.2;
+                    ball1.vx -= sin * kick;
+                    ball1.vy += cos * kick;
+                    ball2.vx += sin * kick;
+                    ball2.vy -= cos * kick;
+                }
                 
                 // Push balls apart
                 const overlap = minDistance - distance;
@@ -2862,6 +3032,27 @@
             const entry = stuckPairs.get(pairKey);
             const stuckDuration = now - entry.startTime;
             const aboveLetters = isAboveTitleLetters(ball1, ball2);
+
+            if (!cachedMobile && stuckDuration >= DESKTOP_STUCK_ESCAPE_MS) {
+                const midX = (ball1.x + ball2.x) / 2;
+                const midY = (ball1.y + ball2.y) / 2;
+                const betweenLetters = titleZone && midX >= titleZone.left && midX <= titleZone.right &&
+                    midY >= titleZone.top && midY <= titleZone.bottom;
+                if (aboveLetters || betweenLetters) {
+                    const direction = ball1.x <= ball2.x ? 1 : -1;
+                    ball1.vx = -direction * Math.max(5, Math.abs(ball1.vx));
+                    ball2.vx = direction * Math.max(5, Math.abs(ball2.vx));
+                    ball1.vy = -Math.max(7, Math.abs(ball1.vy));
+                    ball2.vy = -Math.max(7, Math.abs(ball2.vy));
+                    if (betweenLetters) {
+                        ball1.y = titleZone.top - ball1.radius - 3;
+                        ball2.y = titleZone.top - ball2.radius - 3;
+                    }
+                    stuckPairs.delete(pairKey);
+                    if (activeStickyPairKey === pairKey) hideStickyNotification();
+                    return;
+                }
+            }
 
             // Full-strength callout, but only for the rarest case: a pair glued
             // together while hovering right above the title letters.
@@ -3071,6 +3262,44 @@
             }
         }
 
+        function kickBallOutOfTitleGap(ball, gap, force = 1) {
+            if (!titleZone || ball.isDragging) return;
+            const direction = ball.x < gap.center ? -1 : 1;
+            ball.x = gap.center + direction * Math.max(ball.radius + 4, (gap.right - gap.left) / 2 + 5);
+            ball.y = titleZone.top - ball.radius - 7;
+            ball.vx = direction * Math.max(10 * force, Math.abs(ball.vx) + 5);
+            ball.vy = -Math.max(13 * force, Math.abs(ball.vy) + 6);
+            ball.titleGapDwell = 0;
+            ball.titleGapFrame = collisionFrameCounter;
+        }
+
+        function resolveDesktopTitleGaps() {
+            if (cachedMobile || !titleZone || desktopTitleGaps.length === 0) return;
+            for (const gap of desktopTitleGaps) {
+                let occupant = null;
+                for (const ball of balls) {
+                    if (ball.x <= gap.repelLeft || ball.x >= gap.repelRight ||
+                        ball.y <= titleZone.top - DESKTOP_TITLE_GAP_REPEL_Y ||
+                        ball.y >= titleZone.bottom + DESKTOP_TITLE_GAP_REPEL_Y) continue;
+
+                    if (!ball.isDragging) {
+                        kickBallOutOfTitleGap(ball, gap, gap.isWordGap ? 1.45 : 1.25);
+                        continue;
+                    }
+
+                    if (!occupant) {
+                        occupant = ball;
+                        continue;
+                    }
+
+                    // Keep the dragged ball if there is one; launch every extra ball clear.
+                    const extra = ball.isDragging ? occupant : ball;
+                    if (ball.isDragging) occupant = ball;
+                    kickBallOutOfTitleGap(extra, gap, gap.isWordGap ? 1.35 : 1.1);
+                }
+            }
+        }
+
         // Game loop
         function animate(timestamp) {
             // Resize/rotate events can arrive late or get lost on phones, so also check every frame
@@ -3091,7 +3320,9 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             // Update and draw balls
+            updateDesktopTitleMotion();
             balls.forEach(ball => ball.update());
+            resolveDesktopTitleGaps();
             if (balls.length > (cachedMobile ? MOBILE_SIMPLE_DRAW_BALLS : 500)) {
                 drawBallsSimple();
             } else {
