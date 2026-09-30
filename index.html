@@ -1111,6 +1111,8 @@
                             center: (left.rawRight + right.rawLeft) / 2,
                             repelLeft: left.rawRight - DESKTOP_TITLE_GAP_REPEL_X,
                             repelRight: right.rawLeft + DESKTOP_TITLE_GAP_REPEL_X,
+                            leftIndex: left.index,
+                            rightIndex: right.index,
                             isWordGap: right.index - left.index === 2
                         };
                         desktopTitleGaps.push(gap);
@@ -1431,11 +1433,7 @@
                     if (collision) {
                         // Collision detected!
                         
-                        // Change letter color to ball color
-                        if (letterColors[i] !== this.color) {
-                            letterColors[i] = this.color;
-                            updateTitleColor();
-                        }
+                        colorTitleLetter(i, this.color);
                         playPopcornPop();
 
                         if (!cachedMobile) {
@@ -2742,6 +2740,14 @@
             titleElement.innerHTML = coloredText;
             updateScores();
         }
+
+        function colorTitleLetter(index, color) {
+            if (letterColors[index] === color) return false;
+
+            letterColors[index] = color;
+            updateTitleColor();
+            return true;
+        }
         
         function updateBallCount() {
             ballCountElement.textContent = balls.length;
@@ -3265,6 +3271,9 @@
         function kickBallOutOfTitleGap(ball, gap, force = 1) {
             if (!titleZone || ball.isDragging) return;
             const direction = ball.x < gap.center ? -1 : 1;
+            const touchedLetter = direction < 0 ? gap.leftIndex : gap.rightIndex;
+            colorTitleLetter(touchedLetter, ball.color);
+            playPopcornPop();
             ball.x = gap.center + direction * Math.max(ball.radius + 4, (gap.right - gap.left) / 2 + 5);
             ball.y = titleZone.top - ball.radius - 5;
             ball.vx = direction * Math.max(4.8 * force, Math.abs(ball.vx) + 2);
