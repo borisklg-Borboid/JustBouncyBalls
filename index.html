@@ -1080,6 +1080,7 @@
         let boostOrder = [];
         let activeBoost = null;
         let boostBonusScores = {};
+        let boostStartTimer = null;
         const STICKY_DURATION_THRESHOLD_MS = 2000; // must stay glued for 2s before we even consider calling it out
         const DESKTOP_STUCK_ESCAPE_MS = 650;
         const STICKY_STALE_MS = 120; // tolerate a few skipped frames (e.g. hasCollided lockout)
@@ -1102,8 +1103,8 @@
         const BOOST_TARGET_MS = 800;
         const BOOST_MIN_WAIT_MS = 450;
         const BOOST_MAX_WAIT_MS = 1150;
-        const SWOOSH_START_BALLS = 100;
-        const FINALE_BLAST_PROGRESS = 0.75;
+        const SWOOSH_START_PROGRESS = 0.25; // 500 of 2000 balls on desktop
+        const BOOST_AFTER_BLAST_MS = 900;
         const SUPABASE_URL = 'https://jcjnowvvfzcddfjkprbv.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_1ezvUiSnLB-_tbi3qsYsnQ_gsE05-9F';
         const FINALE_SETTLE_MS = 1000;
@@ -1306,11 +1307,6 @@
 
         function getMaxBalls() {
             return isMobileOrTablet() ? MOBILE_MAX_BALLS : MAX_BALLS;
-        }
-
-        function getRegularBallLimit() {
-            const remainingBoosts = boostOrder.length + (activeBoost ? 1 : 0);
-            return getMaxBalls() - remainingBoosts * BOOST_BALL_COUNT;
         }
 
         function isLandscapeBlocked() {
@@ -1894,6 +1890,7 @@
             finaleSwooshFinished = false;
             finaleBlastTriggered = false;
             stopFinaleSwoosh();
+            restoreBackgroundMusic(250);
             stopTieBattle();
             resetBoostState();
             stuckPairs.clear();
@@ -2028,6 +2025,8 @@
         }
 
         function resetBoostState() {
+            clearTimeout(boostStartTimer);
+            boostStartTimer = null;
             if (activeBoost) {
                 clearTimeout(activeBoost.waitTimer);
                 clearTimeout(activeBoost.targetTimer);
@@ -2164,7 +2163,8 @@
             const spawnY = Math.max(46, titleZone ? titleZone.baseTop - 70 : canvas.height * 0.42);
             const centerX = titleZone ? (titleZone.left + titleZone.right) / 2 : canvas.width / 2;
 
-            for (let i = 0; i < BOOST_BALL_COUNT && balls.length < getMaxBalls(); i++) {
+            const boostBallLimit = getMaxBalls() + activePlayerCount * BOOST_BALL_COUNT;
+            for (let i = 0; i < BOOST_BALL_COUNT && balls.length < boostBallLimit; i++) {
                 const spread = (i - (BOOST_BALL_COUNT - 1) / 2) * 7;
                 const ball = new Ball(centerX + spread, spawnY - (i % 2) * 12, Math.random() * 5 + 5, boost.color);
                 ball.vx = (Math.random() - 0.5) * 3.4;
@@ -2396,22 +2396,28 @@
 
         function getFinaleSwooshProgress() {
             const maxBalls = getMaxBalls();
-            return Math.max(0, Math.min(1, (balls.length - SWOOSH_START_BALLS) / (maxBalls - SWOOSH_START_BALLS)));
+            const startBalls = Math.floor(maxBalls * SWOOSH_START_PROGRESS);
+            return Math.max(0, Math.min(1, (balls.length - startBalls) / (maxBalls - startBalls)));
         }
 
         function checkFinaleBlastCue() {
             if (!gameStarted || gameEnded || finaleBlastTriggered) return;
 
-            if (balls.length >= Math.floor(getMaxBalls() * FINALE_BLAST_PROGRESS)) {
+            if (balls.length >= getMaxBalls()) {
                 finaleBlastTriggered = true;
                 triggerFinaleBlast();
-                startBoostMusic();
-                startBoostSequence();
+                boostStartTimer = setTimeout(() => {
+                    boostStartTimer = null;
+                    if (!gameStarted || gameEnded || !finaleBlastTriggered) return;
+                    startBoostMusic();
+                    startBoostSequence();
+                }, BOOST_AFTER_BLAST_MS);
             }
         }
 
         function updateFinaleSwoosh() {
-            if (!gameStarted || gameEnded || finaleSwooshFinished || balls.length < SWOOSH_START_BALLS) return;
+            if (!gameStarted || gameEnded || finaleSwooshFinished ||
+                balls.length < Math.floor(getMaxBalls() * SWOOSH_START_PROGRESS)) return;
 
             const context = ensureAudio();
             if (!context || !swooshNoiseBuffer) return;
@@ -2509,7 +2515,6 @@
 
             playFinaleBounceCascade(context, now);
             blastFinaleBalls();
-            restoreBackgroundMusic(450);
         }
 
         function triggerFinaleBlast() {
@@ -2545,8 +2550,8 @@
         }
 
         function playFinaleBounceCascade(context, now) {
-            const targetDuration = 4;
-            const bounceCount = isMobileOrTablet() ? 38 : 58;
+            const targetDuration = 0.65;
+            const bounceCount = isMobileOrTablet() ? 12 : 16;
             let offset = 0;
 
             for (let i = 0; i < bounceCount; i++) {
@@ -3027,7 +3032,8 @@
         let finaleExtraZone = 0;
 
         function checkGameEnd(timestamp) {
-            if (!gameStarted || gameEnded || balls.length < getMaxBalls()) return;
+            if (!gameStarted || gameEnded || balls.length < getMaxBalls() ||
+                !finaleBlastTriggered || boostStartTimer !== null || activeBoost || boostOrder.length > 0) return;
 
             finaleExtraZone = usesStackedPile()
                 ? 1.3 * balls.reduce((sum, ball) => sum + Math.PI * ball.radius * ball.radius, 0) / canvas.width
@@ -3118,8 +3124,8 @@
         
         function updateBallCount() {
             ballCountElement.textContent = balls.length;
-            checkFinaleBlastCue();
             updateFinaleSwoosh();
+            checkFinaleBlastCue();
         }
 
         function getSupabaseHeaders() {
@@ -3242,7 +3248,7 @@
                 ball2.shrink();
                 
                 // Spawn new ball on every collision during the game
-                if (gameStarted && balls.length < getRegularBallLimit()) {
+                if (gameStarted && balls.length < getMaxBalls()) {
                     const newX = Math.random() * (canvas.width - 100) + 50;
                     const newY = Math.random() * (canvas.height - 100) + 50;
                     // Random color for fair chances
