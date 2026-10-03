@@ -1085,6 +1085,7 @@
         const STICKY_STALE_MS = 120; // tolerate a few skipped frames (e.g. hasCollided lockout)
         const STICKY_CLEANUP_INTERVAL = 30;
         const MUSIC_BASE_VOLUME = 0.32;
+        const BOOST_MUSIC_VOLUME = 0.4;
         const MUSIC_DUCKED_VOLUME = 0.035;
         const MAX_BALLS = 2000;
         const MOBILE_MAX_BALLS = 500;
@@ -2264,7 +2265,7 @@
             }
             backgroundMusic.pause();
             boostMusic.currentTime = 0;
-            boostMusic.volume = MUSIC_BASE_VOLUME;
+            boostMusic.volume = BOOST_MUSIC_VOLUME;
             boostMusic.play().catch(() => {
                 if (boostMusicActive) window.addEventListener('pointerdown', retryBoostMusic, { once: true });
             });
