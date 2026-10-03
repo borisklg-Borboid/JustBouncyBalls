@@ -272,6 +272,13 @@
             font-weight: bold;
         }
 
+        .boost-score-bonus {
+            display: block;
+            font-size: 9px;
+            line-height: 1.1;
+            white-space: nowrap;
+        }
+
         .name-input {
             flex: 1;
             background: rgba(255, 255, 255, 0.1);
@@ -1069,6 +1076,7 @@
         let stickyHideTimer = null;
         let boostOrder = [];
         let activeBoost = null;
+        let boostBonusScores = {};
         const STICKY_DURATION_THRESHOLD_MS = 2000; // must stay glued for 2s before we even consider calling it out
         const DESKTOP_STUCK_ESCAPE_MS = 650;
         const STICKY_STALE_MS = 120; // tolerate a few skipped frames (e.g. hasCollided lockout)
@@ -1823,6 +1831,7 @@
         
         function startGame() {
             if (gameStarted && !gameEnded) return;
+            boostBonusScores = {};
             if (gameEnded) {
                 letterColors = {};
                 gameEnded = false;
@@ -1871,6 +1880,7 @@
         
         function resetGame() {
             letterColors = {}; // Reset letter colors
+            boostBonusScores = {};
             // Keep playerNames - don't reset them so names stay filled in
             gameStarted = false;
             gameEnded = false;
@@ -1959,8 +1969,8 @@
                 const score = document.createElement('div');
                 score.className = 'color-count';
                 score.id = `player-score-${index}`;
-                score.textContent = count;
                 score.style.color = color;
+                updatePlayerScoreDisplay(score, color, count);
 
                 row.append(colorBox, input, score);
                 colorList.appendChild(row);
@@ -1981,8 +1991,28 @@
             const colorCounts = countLetterColors();
             getActiveColors().forEach((color, index) => {
                 const score = document.getElementById(`player-score-${index}`);
-                if (score) score.textContent = colorCounts[color] || 0;
+                if (score) updatePlayerScoreDisplay(score, color, colorCounts[color] || 0);
             });
+        }
+
+        function updatePlayerScoreDisplay(score, color, letterCount) {
+            const bonus = boostBonusScores[color] || 0;
+            score.textContent = letterCount + bonus;
+            score.title = bonus
+                ? `${letterCount} letters +${bonus} Boost = ${letterCount + bonus} points`
+                : `${letterCount} letters`;
+            if (bonus) {
+                const bonusLabel = document.createElement('span');
+                bonusLabel.className = 'boost-score-bonus';
+                bonusLabel.textContent = `+${bonus} Boost`;
+                score.appendChild(bonusLabel);
+            }
+        }
+
+        function formatWinnerScore(player) {
+            const points = `${player.score} point${player.score !== 1 ? 's' : ''}`;
+            const letters = `${player.letterCount} letter${player.letterCount !== 1 ? 's' : ''}`;
+            return player.boostBonus ? `${points} · ${letters} +${player.boostBonus} Boost` : `${points} · ${letters}`;
         }
 
         function getPlayerDisplayName(index) {
@@ -2085,6 +2115,8 @@
             showBoostFeedback('+10', boost.x, boost.y, boost.color);
             playBoostSuccessSound(boost.color);
             spawnBoostBalls(boost);
+            boostBonusScores[boost.color] = (boostBonusScores[boost.color] || 0) + BOOST_BALL_COUNT;
+            updateScores();
             setTimeout(() => finishBoostAttempt(boost), 760);
         }
 
@@ -2679,9 +2711,12 @@
 
             // Players without a typed name are called "Player 1", "Player 2", ... like the input placeholder
             getActiveColors().forEach((color, index) => {
-                if (colorCounts[color] > 0) {
+                const letterCount = colorCounts[color] || 0;
+                const boostBonus = boostBonusScores[color] || 0;
+                const score = letterCount + boostBonus;
+                if (score > 0) {
                     const typedName = (playerNames[color] || '').trim();
-                    namedScores.push({ color, score: colorCounts[color], name: typedName || `Player ${index + 1}` });
+                    namedScores.push({ color, score, letterCount, boostBonus, name: typedName || `Player ${index + 1}` });
                 }
             });
 
@@ -2706,9 +2741,8 @@
             const winner = leaders[0];
             const winningColor = winner.color;
             const winnerName = winner.name;
-            const letterCount = winner.score;
             
-            showWinner(winnerName, `${letterCount} letter${letterCount !== 1 ? 's' : ''} conquered`, winningColor);
+            showWinner(winnerName, formatWinnerScore(winner), winningColor);
             gameEnded = true;
             resetBoostState();
             enableStartButton();
@@ -2938,9 +2972,8 @@
                     deterministicHash(`${a.color}:${a.name}`) - deterministicHash(`${b.color}:${b.name}`)
                 ))[0];
 
-            const letterCount = winner.score;
             stopTieBattle();
-            showWinner(winner.name, `${letterCount} letter${letterCount !== 1 ? 's' : ''} conquered`, winner.color);
+            showWinner(winner.name, formatWinnerScore(winner), winner.color);
             enableStartButton();
         }
 
