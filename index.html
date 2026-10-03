@@ -1011,6 +1011,7 @@
 
     <canvas id="canvas"></canvas>
     <audio id="backgroundMusic" preload="auto" autoplay playsinline></audio>
+    <audio id="boostMusic" src="sounds/Boost.mp3" preload="auto" loop playsinline></audio>
     <img id="stickyNotification" class="sticky-notification" src="img/We%20got%20sticky%20balls%21.png" alt="We got some sticky balls!">
 
     <div id="tieBattleOverlay" aria-hidden="true">
@@ -1046,6 +1047,7 @@
         const tieBattleCtx = tieBattleCanvas.getContext('2d');
         const tieBattleNames = document.getElementById('tieBattleNames');
         const backgroundMusic = document.getElementById('backgroundMusic');
+        const boostMusic = document.getElementById('boostMusic');
         const prevTrackBtn = document.getElementById('prevTrackBtn');
         const nextTrackBtn = document.getElementById('nextTrackBtn');
         const musicTitle = document.getElementById('musicTitle');
@@ -1066,6 +1068,7 @@
         let finaleSwooshFinished = false;
         let finaleBlastTriggered = false;
         let musicStarted = false;
+        let boostMusicActive = false;
         let musicRestoreFrame = null;
         let lastLetterPopTime = 0;
         let lastBattlePopTime = 0;
@@ -1833,6 +1836,7 @@
             if (gameStarted && !gameEnded) return;
             boostBonusScores = {};
             if (gameEnded) {
+                stopBoostMusic();
                 letterColors = {};
                 gameEnded = false;
                 finaleStartTime = null;
@@ -1879,6 +1883,7 @@
         }
         
         function resetGame() {
+            stopBoostMusic();
             letterColors = {}; // Reset letter colors
             boostBonusScores = {};
             // Keep playerNames - don't reset them so names stay filled in
@@ -2225,6 +2230,7 @@
 
         function startBackgroundMusic() {
             if (!backgroundMusic || musicPlaylist.length === 0) return;
+            if (boostMusicActive) return;
             if (musicStarted && !backgroundMusic.paused) return;
 
             backgroundMusic.autoplay = true;
@@ -2243,6 +2249,34 @@
                 .catch(() => {
                     musicStarted = false;
                 });
+        }
+
+        function retryBoostMusic() {
+            if (boostMusicActive) boostMusic.play().catch(() => {});
+        }
+
+        function startBoostMusic() {
+            if (boostMusicActive) return;
+            boostMusicActive = true;
+            if (musicRestoreFrame) {
+                cancelAnimationFrame(musicRestoreFrame);
+                musicRestoreFrame = null;
+            }
+            backgroundMusic.pause();
+            boostMusic.currentTime = 0;
+            boostMusic.volume = MUSIC_BASE_VOLUME;
+            boostMusic.play().catch(() => {
+                if (boostMusicActive) window.addEventListener('pointerdown', retryBoostMusic, { once: true });
+            });
+        }
+
+        function stopBoostMusic() {
+            if (!boostMusicActive) return;
+            boostMusicActive = false;
+            window.removeEventListener('pointerdown', retryBoostMusic);
+            boostMusic.pause();
+            boostMusic.currentTime = 0;
+            startBackgroundMusic();
         }
 
         function primeBackgroundMusic() {
@@ -2307,7 +2341,7 @@
         }
 
         function restoreBackgroundMusic(duration = 900) {
-            if (!backgroundMusic) return;
+            if (!backgroundMusic || boostMusicActive) return;
             if (musicRestoreFrame) cancelAnimationFrame(musicRestoreFrame);
 
             const startVolume = backgroundMusic.volume;
@@ -2370,6 +2404,7 @@
             if (balls.length >= Math.floor(getMaxBalls() * FINALE_BLAST_PROGRESS)) {
                 finaleBlastTriggered = true;
                 triggerFinaleBlast();
+                startBoostMusic();
                 startBoostSequence();
             }
         }
@@ -2723,6 +2758,7 @@
             if (namedScores.length === 0) {
                 gameEnded = true;
                 resetBoostState();
+                stopBoostMusic();
                 enableStartButton();
                 renderPlayerList();
                 return;
@@ -3011,6 +3047,8 @@
             const winnerName = document.getElementById('winnerName');
             const winnerScore = document.getElementById('winnerScore');
             const wasVisible = overlay.classList.contains('visible');
+
+            stopBoostMusic();
 
             winnerName.textContent = name;
             winnerScore.textContent = scoreText;
