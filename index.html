@@ -1069,6 +1069,7 @@
         let finaleBlastTriggered = false;
         let musicStarted = false;
         let boostMusicActive = false;
+        let boostPlaylistFadeTimer = null;
         let musicRestoreFrame = null;
         let lastLetterPopTime = 0;
         let lastBattlePopTime = 0;
@@ -1087,6 +1088,7 @@
         const STICKY_CLEANUP_INTERVAL = 30;
         const MUSIC_BASE_VOLUME = 0.32;
         const BOOST_MUSIC_VOLUME = 0.4;
+        const BOOST_PLAYLIST_FADE_MS = 250;
         const MUSIC_DUCKED_VOLUME = 0.035;
         const MAX_BALLS = 2000;
         const MOBILE_MAX_BALLS = 500;
@@ -1104,7 +1106,8 @@
         const BOOST_MIN_WAIT_MS = 450;
         const BOOST_MAX_WAIT_MS = 1150;
         const SWOOSH_START_PROGRESS = 0.25; // 500 of 2000 balls on desktop
-        const BOOST_AFTER_BLAST_MS = 900;
+        const BOOST_MUSIC_START_PROGRESS = 0.45; // 900 of 2000 balls on desktop
+        const BOOST_CHALLENGE_AFTER_BLAST_MS = 900;
         const SUPABASE_URL = 'https://jcjnowvvfzcddfjkprbv.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_1ezvUiSnLB-_tbi3qsYsnQ_gsE05-9F';
         const FINALE_SETTLE_MS = 1000;
@@ -2263,7 +2266,19 @@
                 cancelAnimationFrame(musicRestoreFrame);
                 musicRestoreFrame = null;
             }
-            backgroundMusic.pause();
+            if (!backgroundMusic.paused) {
+                const startVolume = backgroundMusic.volume;
+                const startedAt = performance.now();
+                boostPlaylistFadeTimer = setInterval(() => {
+                    const progress = Math.min(1, (performance.now() - startedAt) / BOOST_PLAYLIST_FADE_MS);
+                    backgroundMusic.volume = startVolume * (1 - progress);
+                    if (progress >= 1 || backgroundMusic.paused) {
+                        clearInterval(boostPlaylistFadeTimer);
+                        boostPlaylistFadeTimer = null;
+                        backgroundMusic.pause();
+                    }
+                }, 25);
+            }
             boostMusic.currentTime = 0;
             boostMusic.volume = BOOST_MUSIC_VOLUME;
             boostMusic.play().catch(() => {
@@ -2274,9 +2289,12 @@
         function stopBoostMusic() {
             if (!boostMusicActive) return;
             boostMusicActive = false;
+            clearInterval(boostPlaylistFadeTimer);
+            boostPlaylistFadeTimer = null;
             window.removeEventListener('pointerdown', retryBoostMusic);
             boostMusic.pause();
             boostMusic.currentTime = 0;
+            backgroundMusic.volume = MUSIC_BASE_VOLUME;
             startBackgroundMusic();
         }
 
@@ -2330,7 +2348,7 @@
         }
 
         function duckBackgroundMusic(progress) {
-            if (!backgroundMusic) return;
+            if (!backgroundMusic || boostMusicActive) return;
 
             if (musicRestoreFrame) {
                 cancelAnimationFrame(musicRestoreFrame);
@@ -2400,6 +2418,11 @@
             return Math.max(0, Math.min(1, (balls.length - startBalls) / (maxBalls - startBalls)));
         }
 
+        function checkBoostMusicCue() {
+            if (!gameStarted || gameEnded || boostMusicActive) return;
+            if (balls.length >= Math.floor(getMaxBalls() * BOOST_MUSIC_START_PROGRESS)) startBoostMusic();
+        }
+
         function checkFinaleBlastCue() {
             if (!gameStarted || gameEnded || finaleBlastTriggered) return;
 
@@ -2409,9 +2432,8 @@
                 boostStartTimer = setTimeout(() => {
                     boostStartTimer = null;
                     if (!gameStarted || gameEnded || !finaleBlastTriggered) return;
-                    startBoostMusic();
                     startBoostSequence();
-                }, BOOST_AFTER_BLAST_MS);
+                }, BOOST_CHALLENGE_AFTER_BLAST_MS);
             }
         }
 
@@ -3125,6 +3147,7 @@
         function updateBallCount() {
             ballCountElement.textContent = balls.length;
             updateFinaleSwoosh();
+            checkBoostMusicCue();
             checkFinaleBlastCue();
         }
 
