@@ -2240,12 +2240,12 @@
         }
 
         function spawnBoostBalls(boost) {
-            const spawnY = Math.max(46, Math.min(boost.y + 16, titleZone ? titleZone.top - 38 : canvas.height * 0.42));
-            const startX = Math.max(40, Math.min(canvas.width - 40, boost.x));
+            const spawnY = Math.max(46, titleZone ? titleZone.baseTop - 70 : canvas.height * 0.42);
+            const centerX = titleZone ? (titleZone.left + titleZone.right) / 2 : canvas.width / 2;
 
             for (let i = 0; i < BOOST_BALL_COUNT && balls.length < getMaxBalls(); i++) {
-                const spread = (i - (BOOST_BALL_COUNT - 1) / 2) * 7 + (Math.random() - 0.5) * 16;
-                const ball = new Ball(startX + spread, spawnY - Math.random() * 34, Math.random() * 5 + 5, boost.color);
+                const spread = (i - (BOOST_BALL_COUNT - 1) / 2) * 7;
+                const ball = new Ball(centerX + spread, spawnY - (i % 2) * 12, Math.random() * 5 + 5, boost.color);
                 ball.vx = (Math.random() - 0.5) * 3.4;
                 ball.vy = Math.random() * 2.5 + 0.8;
                 ball.glowIntensity = 1.8;
