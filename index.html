@@ -1135,7 +1135,7 @@
         const DESKTOP_TITLE_GAP_REPEL_Y = 10;
         const BOOST_BALL_COUNT = 10;
         const BOOST_TARGET_MS = 800;
-        const BOOST_OFFER_MS = 6000;
+        const BOOST_OFFER_MS = 4000;
         const BOOST_MIN_WAIT_MS = 650;
         const BOOST_MAX_WAIT_MS = 1850;
         const SWOOSH_START_BALLS = 100;
@@ -1915,7 +1915,6 @@
             updateBallCount();
             addPlayerBtn.disabled = true;
             removePlayerBtn.disabled = true;
-            startBoostOffers();
         }
         
         function resetGame() {
@@ -2063,15 +2062,17 @@
             if (boostOffer === index) return 'Boost';
             if (boostRoundUsed.has(index)) return 'Used';
             if (boostRoundSkipped.has(index)) return 'Passed';
+            if (!finaleBlastTriggered) return 'At blast';
             return 'Soon';
         }
 
         function getBoostButtonTitle(index) {
             if (!gameStarted || gameEnded) return 'Available during a round';
             if (activeBoost && activeBoost.index === index) return 'Click your name when it appears';
-            if (boostOffer === index) return 'Your turn: start your boost within six seconds';
+            if (boostOffer === index) return 'Your turn: start your boost within four seconds';
             if (boostRoundUsed.has(index)) return 'Boost already used this round';
             if (boostRoundSkipped.has(index)) return 'Boost turn passed this round';
+            if (!finaleBlastTriggered) return 'Boost turns start when the blast hits';
             return 'Your boost turn is coming';
         }
 
@@ -2455,6 +2456,7 @@
             if (balls.length >= Math.floor(getMaxBalls() * FINALE_BLAST_PROGRESS)) {
                 finaleBlastTriggered = true;
                 triggerFinaleBlast();
+                startBoostOffers();
             }
         }
 
