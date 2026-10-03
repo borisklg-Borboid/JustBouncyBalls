@@ -272,38 +272,6 @@
             font-weight: bold;
         }
 
-        .boost-btn {
-            border: 1px solid currentColor;
-            border-radius: 999px;
-            background: rgba(0, 0, 0, 0.44);
-            color: white;
-            padding: 4px 8px;
-            min-width: 54px;
-            font-size: 10px;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            cursor: pointer;
-            box-shadow: 0 0 10px currentColor;
-            transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
-        }
-
-        .boost-btn:hover:not(:disabled) {
-            transform: scale(1.08);
-            box-shadow: 0 0 14px currentColor, 0 0 28px currentColor;
-        }
-
-        .boost-btn:disabled {
-            cursor: not-allowed;
-            opacity: 0.42;
-        }
-
-        .boost-btn.offered,
-        .boost-btn.active {
-            opacity: 0.95;
-            animation: boost-button-pulse 0.62s ease-in-out infinite alternate;
-        }
-        
         .name-input {
             flex: 1;
             background: rgba(255, 255, 255, 0.1);
@@ -390,11 +358,6 @@
             text-shadow: 0 0 12px var(--boost-color), 0 0 28px var(--boost-color);
             pointer-events: none;
             animation: boost-feedback-float 0.86s ease-out forwards;
-        }
-
-        @keyframes boost-button-pulse {
-            from { box-shadow: 0 0 8px currentColor; }
-            to { box-shadow: 0 0 16px currentColor, 0 0 28px currentColor; }
         }
 
         @keyframes boost-target-pop {
@@ -804,12 +767,6 @@
                 font-size: 12px;
             }
 
-            .boost-btn {
-                min-width: 44px;
-                padding: 3px 6px;
-                font-size: 8px;
-            }
-
             #playerControls {
                 gap: 8px;
                 margin-top: 8px;
@@ -1111,11 +1068,7 @@
         let activeStickyPairKey = null;
         let stickyHideTimer = null;
         let boostOrder = [];
-        let boostOffer = null;
-        let boostOfferTimer = null;
         let activeBoost = null;
-        let boostRoundUsed = new Set();
-        let boostRoundSkipped = new Set();
         const STICKY_DURATION_THRESHOLD_MS = 2000; // must stay glued for 2s before we even consider calling it out
         const DESKTOP_STUCK_ESCAPE_MS = 650;
         const STICKY_STALE_MS = 120; // tolerate a few skipped frames (e.g. hasCollided lockout)
@@ -1135,9 +1088,8 @@
         const DESKTOP_TITLE_GAP_REPEL_Y = 10;
         const BOOST_BALL_COUNT = 10;
         const BOOST_TARGET_MS = 800;
-        const BOOST_OFFER_MS = 4000;
-        const BOOST_MIN_WAIT_MS = 650;
-        const BOOST_MAX_WAIT_MS = 1850;
+        const BOOST_MIN_WAIT_MS = 450;
+        const BOOST_MAX_WAIT_MS = 1150;
         const SWOOSH_START_BALLS = 100;
         const FINALE_BLAST_PROGRESS = 0.75;
         const SUPABASE_URL = 'https://jcjnowvvfzcddfjkprbv.supabase.co';
@@ -1345,7 +1297,7 @@
         }
 
         function getRegularBallLimit() {
-            const remainingBoosts = boostOrder.length + (boostOffer !== null ? 1 : 0) + (activeBoost ? 1 : 0);
+            const remainingBoosts = boostOrder.length + (activeBoost ? 1 : 0);
             return getMaxBalls() - remainingBoosts * BOOST_BALL_COUNT;
         }
 
@@ -2010,19 +1962,7 @@
                 score.textContent = count;
                 score.style.color = color;
 
-                const boostButton = document.createElement('button');
-                boostButton.type = 'button';
-                boostButton.className = 'boost-btn';
-                boostButton.id = `boost-btn-${index}`;
-                boostButton.style.color = color;
-                boostButton.textContent = getBoostButtonLabel(index);
-                boostButton.title = getBoostButtonTitle(index);
-                boostButton.disabled = !canRequestBoost(index);
-                if (boostOffer === index) boostButton.classList.add('offered');
-                if (activeBoost && activeBoost.index === index) boostButton.classList.add('active');
-                boostButton.addEventListener('click', () => requestBoost(index));
-
-                row.append(colorBox, input, score, boostButton);
+                row.append(colorBox, input, score);
                 colorList.appendChild(row);
             });
 
@@ -2051,78 +1991,28 @@
             return typedName || `Player ${index + 1}`;
         }
 
-        function canRequestBoost(index) {
-            return gameStarted && !gameEnded &&
-                boostOffer === index && !activeBoost;
-        }
-
-        function getBoostButtonLabel(index) {
-            if (!gameStarted || gameEnded) return 'Boost';
-            if (activeBoost && activeBoost.index === index) return activeBoost.phase === 'target' ? 'Now' : 'Wait';
-            if (boostOffer === index) return 'Boost';
-            if (boostRoundUsed.has(index)) return 'Used';
-            if (boostRoundSkipped.has(index)) return 'Passed';
-            if (!finaleBlastTriggered) return 'At blast';
-            return 'Soon';
-        }
-
-        function getBoostButtonTitle(index) {
-            if (!gameStarted || gameEnded) return 'Available during a round';
-            if (activeBoost && activeBoost.index === index) return 'Click your name when it appears';
-            if (boostOffer === index) return 'Your turn: start your boost within four seconds';
-            if (boostRoundUsed.has(index)) return 'Boost already used this round';
-            if (boostRoundSkipped.has(index)) return 'Boost turn passed this round';
-            if (!finaleBlastTriggered) return 'Boost turns start when the blast hits';
-            return 'Your boost turn is coming';
-        }
-
         function resetBoostState() {
-            clearTimeout(boostOfferTimer);
             if (activeBoost) {
                 clearTimeout(activeBoost.waitTimer);
                 clearTimeout(activeBoost.targetTimer);
-                if (activeBoost.missListener) document.removeEventListener('pointerdown', activeBoost.missListener, true);
             }
             boostOrder = [];
-            boostOffer = null;
-            boostOfferTimer = null;
             activeBoost = null;
-            boostRoundUsed = new Set();
-            boostRoundSkipped = new Set();
             boostLayer.innerHTML = '';
         }
 
-        function startBoostOffers() {
+        function startBoostSequence() {
             boostOrder = Array.from({ length: activePlayerCount }, (_, index) => index);
             for (let i = boostOrder.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [boostOrder[i], boostOrder[j]] = [boostOrder[j], boostOrder[i]];
             }
-            offerNextBoost();
+            runNextBoost();
         }
 
-        function offerNextBoost() {
-            if (!gameStarted || gameEnded || activeBoost || boostOffer !== null || boostOrder.length === 0) return;
+        function runNextBoost() {
+            if (!gameStarted || gameEnded || activeBoost || boostOrder.length === 0) return;
             const index = boostOrder.shift();
-            boostOffer = index;
-            renderPlayerList();
-            boostOfferTimer = setTimeout(() => {
-                if (boostOffer !== index) return;
-                boostRoundSkipped.add(index);
-                boostOffer = null;
-                boostOfferTimer = null;
-                offerNextBoost();
-                renderPlayerList();
-            }, BOOST_OFFER_MS);
-        }
-
-        function requestBoost(index) {
-            if (!canRequestBoost(index)) return;
-
-            clearTimeout(boostOfferTimer);
-            boostOfferTimer = null;
-            boostOffer = null;
-            boostRoundUsed.add(index);
             activeBoost = {
                 index,
                 color: selectedPlayerColors[index],
@@ -2130,10 +2020,8 @@
                 phase: 'waiting',
                 waitTimer: null,
                 targetTimer: null,
-                element: null,
-                missListener: null
+                element: null
             };
-            renderPlayerList();
 
             const wait = BOOST_MIN_WAIT_MS + Math.random() * (BOOST_MAX_WAIT_MS - BOOST_MIN_WAIT_MS);
             activeBoost.waitTimer = setTimeout(showBoostTarget, wait);
@@ -2171,21 +2059,17 @@
             target.style.setProperty('--boost-color', activeBoost.color);
             target.style.setProperty('--boost-x', `${position.x}px`);
             target.style.setProperty('--boost-y', `${position.y}px`);
-            target.addEventListener('click', event => {
+            const claimBoost = event => {
                 event.stopPropagation();
                 completeBoostSuccess();
-            }, { once: true });
+            };
+            target.addEventListener('pointerdown', claimBoost, { once: true });
+            target.addEventListener('click', claimBoost, { once: true });
 
             boostLayer.innerHTML = '';
             boostLayer.appendChild(target);
             activeBoost.element = target;
-            activeBoost.missListener = event => {
-                if (event.target && event.target.closest && event.target.closest('.boost-target')) return;
-                completeBoostMiss();
-            };
-            document.addEventListener('pointerdown', activeBoost.missListener, true);
             activeBoost.targetTimer = setTimeout(completeBoostMiss, BOOST_TARGET_MS);
-            renderPlayerList();
         }
 
         function completeBoostSuccess() {
@@ -2222,11 +2106,9 @@
 
             clearTimeout(boost.waitTimer);
             clearTimeout(boost.targetTimer);
-            if (boost.missListener) document.removeEventListener('pointerdown', boost.missListener, true);
             activeBoost = null;
             boostLayer.innerHTML = '';
-            renderPlayerList();
-            offerNextBoost();
+            runNextBoost();
         }
 
         function showBoostFeedback(text, x, y, color) {
@@ -2456,7 +2338,7 @@
             if (balls.length >= Math.floor(getMaxBalls() * FINALE_BLAST_PROGRESS)) {
                 finaleBlastTriggered = true;
                 triggerFinaleBlast();
-                startBoostOffers();
+                startBoostSequence();
             }
         }
 
