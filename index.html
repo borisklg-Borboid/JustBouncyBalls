@@ -271,6 +271,38 @@
             text-align: center;
             font-weight: bold;
         }
+
+        .boost-btn {
+            border: 1px solid currentColor;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.44);
+            color: white;
+            padding: 4px 8px;
+            min-width: 54px;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            box-shadow: 0 0 10px currentColor;
+            transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .boost-btn:hover:not(:disabled) {
+            transform: scale(1.08);
+            box-shadow: 0 0 14px currentColor, 0 0 28px currentColor;
+        }
+
+        .boost-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.42;
+        }
+
+        .boost-btn.queued,
+        .boost-btn.active {
+            opacity: 0.95;
+            animation: boost-button-pulse 0.62s ease-in-out infinite alternate;
+        }
         
         .name-input {
             flex: 1;
@@ -287,6 +319,113 @@
             outline: none;
             border-color: #00ff80;
             box-shadow: 0 0 5px rgba(0, 255, 128, 0.5);
+        }
+
+        #boostLayer {
+            position: fixed;
+            inset: 0;
+            z-index: 160;
+            pointer-events: none;
+        }
+
+        .boost-target {
+            position: absolute;
+            left: var(--boost-x);
+            top: var(--boost-y);
+            transform: translate(-50%, -50%) scale(0.8);
+            padding: 8px 16px;
+            border: 2px solid var(--boost-color);
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.72);
+            color: var(--boost-color);
+            font-family: 'Comic Sans MS', 'Comic Neue', cursive, sans-serif;
+            font-size: clamp(1.25rem, 3.4vw, 3.1rem);
+            font-weight: 900;
+            line-height: 1;
+            text-shadow: 0 0 14px var(--boost-color), 0 0 34px var(--boost-color);
+            box-shadow: 0 0 18px var(--boost-color), inset 0 0 18px rgba(255, 255, 255, 0.12);
+            pointer-events: auto;
+            cursor: pointer;
+            user-select: none;
+            animation: boost-target-pop 0.12s ease-out forwards, boost-target-window 0.5s linear forwards;
+        }
+
+        .boost-target::after {
+            content: '';
+            position: absolute;
+            inset: -18px;
+            border: 2px solid var(--boost-color);
+            border-radius: 999px;
+            opacity: 0;
+            transform: scale(0.35);
+            pointer-events: none;
+        }
+
+        .boost-target.success {
+            animation: boost-hit-pop 0.55s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .boost-target.success::after {
+            animation: boost-shockwave 0.55s ease-out forwards;
+        }
+
+        .boost-target.miss {
+            color: rgba(255, 255, 255, 0.85);
+            border-color: rgba(255, 255, 255, 0.55);
+            text-shadow: 0 0 12px rgba(255, 255, 255, 0.75);
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.45);
+            animation: boost-miss-fade 0.55s ease-in forwards;
+            pointer-events: none;
+        }
+
+        .boost-feedback {
+            position: absolute;
+            left: var(--boost-x);
+            top: var(--boost-y);
+            transform: translate(-50%, -92%);
+            color: var(--boost-color);
+            font-size: clamp(1.2rem, 3vw, 2.8rem);
+            font-weight: 1000;
+            text-shadow: 0 0 12px var(--boost-color), 0 0 28px var(--boost-color);
+            pointer-events: none;
+            animation: boost-feedback-float 0.86s ease-out forwards;
+        }
+
+        @keyframes boost-button-pulse {
+            from { box-shadow: 0 0 8px currentColor; }
+            to { box-shadow: 0 0 16px currentColor, 0 0 28px currentColor; }
+        }
+
+        @keyframes boost-target-pop {
+            to { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        @keyframes boost-target-window {
+            0%, 72% { opacity: 1; }
+            100% { opacity: 0.82; }
+        }
+
+        @keyframes boost-hit-pop {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            42% { opacity: 1; transform: translate(-50%, -50%) scale(1.22); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        @keyframes boost-shockwave {
+            0% { opacity: 0.9; transform: scale(0.4); }
+            100% { opacity: 0; transform: scale(2.35); }
+        }
+
+        @keyframes boost-miss-fade {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -70%) scale(0.84); }
+        }
+
+        @keyframes boost-feedback-float {
+            0% { opacity: 0; transform: translate(-50%, -55%) scale(0.75); }
+            20% { opacity: 1; transform: translate(-50%, -92%) scale(1.08); }
+            100% { opacity: 0; transform: translate(-50%, -185%) scale(0.92); }
         }
         
 
@@ -665,6 +804,12 @@
                 font-size: 12px;
             }
 
+            .boost-btn {
+                min-width: 44px;
+                padding: 3px 6px;
+                font-size: 8px;
+            }
+
             #playerControls {
                 gap: 8px;
                 margin-top: 8px;
@@ -879,6 +1024,7 @@
 
     <div id="title">Just Bouncy Balls</div>
     <div id="finaleBlast" aria-hidden="true"></div>
+    <div id="boostLayer" aria-hidden="true"></div>
     <div id="ballCount">Balls: <span id="count">1</span></div>
     <div id="totalPlays">Total plays: <span id="totalPlaysCount">...</span></div>
     <div id="musicPlayer" aria-label="Playlist controls">
@@ -941,6 +1087,7 @@
         const musicTitle = document.getElementById('musicTitle');
         const finaleBlastElement = document.getElementById('finaleBlast');
         const stickyNotificationEl = document.getElementById('stickyNotification');
+        const boostLayer = document.getElementById('boostLayer');
         
         // Game state variables
         let gameStarted = false;
@@ -963,6 +1110,9 @@
         let stuckPairs = new Map();
         let activeStickyPairKey = null;
         let stickyHideTimer = null;
+        let boostQueue = [];
+        let activeBoost = null;
+        let boostRoundUsed = new Set();
         const STICKY_DURATION_THRESHOLD_MS = 2000; // must stay glued for 2s before we even consider calling it out
         const DESKTOP_STUCK_ESCAPE_MS = 650;
         const STICKY_STALE_MS = 120; // tolerate a few skipped frames (e.g. hasCollided lockout)
@@ -980,6 +1130,10 @@
         const DESKTOP_WORD_GAP_WIDTH = 24; // about one and a half of the smallest regular desktop ball
         const DESKTOP_TITLE_GAP_REPEL_X = 28;
         const DESKTOP_TITLE_GAP_REPEL_Y = 10;
+        const BOOST_BALL_COUNT = 10;
+        const BOOST_TARGET_MS = 500;
+        const BOOST_MIN_WAIT_MS = 650;
+        const BOOST_MAX_WAIT_MS = 1850;
         const SWOOSH_START_BALLS = 100;
         const FINALE_BLAST_PROGRESS = 0.75;
         const SUPABASE_URL = 'https://jcjnowvvfzcddfjkprbv.supabase.co';
@@ -1724,9 +1878,9 @@
             ensureAudio();
             startBackgroundMusic();
             lockPortrait();
-            incrementTotalPlays();
             
             gameStarted = true;
+            resetBoostState();
             startBtn.textContent = 'Busy';
             startBtn.disabled = true;
             startBtn.style.opacity = '0.5';
@@ -1764,6 +1918,7 @@
             finaleBlastTriggered = false;
             stopFinaleSwoosh();
             stopTieBattle();
+            resetBoostState();
             stuckPairs.clear();
             hideStickyNotification();
             if (finaleBlastElement) finaleBlastElement.classList.remove('active');
@@ -1846,7 +2001,19 @@
                 score.textContent = count;
                 score.style.color = color;
 
-                row.append(colorBox, input, score);
+                const boostButton = document.createElement('button');
+                boostButton.type = 'button';
+                boostButton.className = 'boost-btn';
+                boostButton.id = `boost-btn-${index}`;
+                boostButton.style.color = color;
+                boostButton.textContent = getBoostButtonLabel(index);
+                boostButton.title = getBoostButtonTitle(index);
+                boostButton.disabled = !canRequestBoost(index);
+                if (boostQueue.some(entry => entry.index === index)) boostButton.classList.add('queued');
+                if (activeBoost && activeBoost.index === index) boostButton.classList.add('active');
+                boostButton.addEventListener('click', () => requestBoost(index));
+
+                row.append(colorBox, input, score, boostButton);
                 colorList.appendChild(row);
             });
 
@@ -1867,6 +2034,193 @@
                 const score = document.getElementById(`player-score-${index}`);
                 if (score) score.textContent = colorCounts[color] || 0;
             });
+        }
+
+        function getPlayerDisplayName(index) {
+            const color = selectedPlayerColors[index];
+            const typedName = (playerNames[color] || '').trim();
+            return typedName || `Player ${index + 1}`;
+        }
+
+        function canRequestBoost(index) {
+            return gameStarted && !gameEnded &&
+                !boostRoundUsed.has(index) &&
+                !boostQueue.some(entry => entry.index === index) &&
+                !(activeBoost && activeBoost.index === index);
+        }
+
+        function getBoostButtonLabel(index) {
+            if (!gameStarted || gameEnded) return 'Boost';
+            if (activeBoost && activeBoost.index === index) return activeBoost.phase === 'target' ? 'Now' : 'Wait';
+            if (boostQueue.some(entry => entry.index === index)) return 'Queue';
+            if (boostRoundUsed.has(index)) return 'Used';
+            return 'Boost';
+        }
+
+        function getBoostButtonTitle(index) {
+            if (!gameStarted || gameEnded) return 'Available during a round';
+            if (activeBoost && activeBoost.index === index) return 'Click your name when it appears';
+            if (boostQueue.some(entry => entry.index === index)) return 'Boost queued';
+            if (boostRoundUsed.has(index)) return 'Boost already used this round';
+            return 'Start boost challenge';
+        }
+
+        function resetBoostState() {
+            if (activeBoost) {
+                clearTimeout(activeBoost.waitTimer);
+                clearTimeout(activeBoost.targetTimer);
+                if (activeBoost.missListener) document.removeEventListener('pointerdown', activeBoost.missListener, true);
+            }
+            boostQueue = [];
+            activeBoost = null;
+            boostRoundUsed = new Set();
+            boostLayer.innerHTML = '';
+        }
+
+        function requestBoost(index) {
+            if (!canRequestBoost(index)) return;
+
+            boostRoundUsed.add(index);
+            boostQueue.push({
+                index,
+                color: selectedPlayerColors[index],
+                name: getPlayerDisplayName(index)
+            });
+            renderPlayerList();
+            runNextBoost();
+        }
+
+        function runNextBoost() {
+            if (activeBoost || boostQueue.length === 0 || !gameStarted || gameEnded) return;
+
+            activeBoost = {
+                ...boostQueue.shift(),
+                phase: 'waiting',
+                waitTimer: null,
+                targetTimer: null,
+                element: null,
+                missListener: null
+            };
+            renderPlayerList();
+
+            const wait = BOOST_MIN_WAIT_MS + Math.random() * (BOOST_MAX_WAIT_MS - BOOST_MIN_WAIT_MS);
+            activeBoost.waitTimer = setTimeout(showBoostTarget, wait);
+        }
+
+        function getBoostTargetPosition() {
+            const margin = Math.max(58, Math.min(canvas.width, canvas.height) * 0.08);
+            const left = margin;
+            const right = Math.max(left + 1, canvas.width - margin);
+            const top = margin + 35;
+            const titleTop = titleZone ? titleZone.top : canvas.height * 0.5;
+            const bottom = Math.max(top + 1, Math.min(canvas.height - margin - 30, titleTop - 75));
+
+            return {
+                x: left + Math.random() * (right - left),
+                y: top + Math.random() * (bottom - top)
+            };
+        }
+
+        function showBoostTarget() {
+            if (!activeBoost || !gameStarted || gameEnded) {
+                finishBoostAttempt();
+                return;
+            }
+
+            const position = getBoostTargetPosition();
+            activeBoost.phase = 'target';
+            activeBoost.x = position.x;
+            activeBoost.y = position.y;
+
+            const target = document.createElement('button');
+            target.type = 'button';
+            target.className = 'boost-target';
+            target.textContent = activeBoost.name;
+            target.style.setProperty('--boost-color', activeBoost.color);
+            target.style.setProperty('--boost-x', `${position.x}px`);
+            target.style.setProperty('--boost-y', `${position.y}px`);
+            target.addEventListener('click', event => {
+                event.stopPropagation();
+                completeBoostSuccess();
+            }, { once: true });
+
+            boostLayer.innerHTML = '';
+            boostLayer.appendChild(target);
+            activeBoost.element = target;
+            activeBoost.missListener = event => {
+                if (event.target && event.target.closest && event.target.closest('.boost-target')) return;
+                completeBoostMiss();
+            };
+            document.addEventListener('pointerdown', activeBoost.missListener, true);
+            activeBoost.targetTimer = setTimeout(completeBoostMiss, BOOST_TARGET_MS);
+            renderPlayerList();
+        }
+
+        function completeBoostSuccess() {
+            if (!activeBoost || activeBoost.phase !== 'target') return;
+
+            clearTimeout(activeBoost.targetTimer);
+            const boost = activeBoost;
+            boost.phase = 'success';
+            if (boost.element) {
+                boost.element.classList.add('success');
+                boost.element.disabled = true;
+            }
+            showBoostFeedback('+10', boost.x, boost.y, boost.color);
+            playBoostSuccessSound(boost.color);
+            spawnBoostBalls(boost);
+            setTimeout(() => finishBoostAttempt(boost), 760);
+        }
+
+        function completeBoostMiss() {
+            if (!activeBoost || activeBoost.phase !== 'target') return;
+
+            const boost = activeBoost;
+            boost.phase = 'miss';
+            if (boost.element) {
+                boost.element.textContent = 'Too late';
+                boost.element.classList.add('miss');
+                boost.element.disabled = true;
+            }
+            setTimeout(() => finishBoostAttempt(boost), 620);
+        }
+
+        function finishBoostAttempt(boost = activeBoost) {
+            if (!boost || boost !== activeBoost) return;
+
+            clearTimeout(boost.waitTimer);
+            clearTimeout(boost.targetTimer);
+            if (boost.missListener) document.removeEventListener('pointerdown', boost.missListener, true);
+            activeBoost = null;
+            boostLayer.innerHTML = '';
+            renderPlayerList();
+            runNextBoost();
+        }
+
+        function showBoostFeedback(text, x, y, color) {
+            const feedback = document.createElement('div');
+            feedback.className = 'boost-feedback';
+            feedback.textContent = text;
+            feedback.style.setProperty('--boost-color', color);
+            feedback.style.setProperty('--boost-x', `${x}px`);
+            feedback.style.setProperty('--boost-y', `${y}px`);
+            boostLayer.appendChild(feedback);
+            setTimeout(() => feedback.remove(), 950);
+        }
+
+        function spawnBoostBalls(boost) {
+            const spawnY = Math.max(46, Math.min(boost.y + 16, titleZone ? titleZone.top - 38 : canvas.height * 0.42));
+            const startX = Math.max(40, Math.min(canvas.width - 40, boost.x));
+
+            for (let i = 0; i < BOOST_BALL_COUNT && balls.length < getMaxBalls(); i++) {
+                const spread = (i - (BOOST_BALL_COUNT - 1) / 2) * 7 + (Math.random() - 0.5) * 16;
+                const ball = new Ball(startX + spread, spawnY - Math.random() * 34, Math.random() * 5 + 5, boost.color);
+                ball.vx = (Math.random() - 0.5) * 3.4;
+                ball.vy = Math.random() * 2.5 + 0.8;
+                ball.glowIntensity = 1.8;
+                balls.push(ball);
+            }
+            updateBallCount();
         }
         
         function updatePlayerName(color, name) {
@@ -2382,6 +2736,27 @@
                 playPopcornPop({ mode, intensity: intensity * 0.45, skipThrottle: true });
             }
         }
+
+        function playBoostSuccessSound() {
+            const context = ensureAudio();
+            if (!context) return;
+
+            const now = context.currentTime;
+            [523.25, 659.25, 783.99].forEach((frequency, index) => {
+                const tone = context.createOscillator();
+                const gain = context.createGain();
+                tone.type = 'triangle';
+                tone.frequency.setValueAtTime(frequency, now + index * 0.055);
+                tone.frequency.exponentialRampToValueAtTime(frequency * 1.18, now + index * 0.055 + 0.16);
+                gain.gain.setValueAtTime(0.0001, now + index * 0.055);
+                gain.gain.exponentialRampToValueAtTime(0.055, now + index * 0.055 + 0.018);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.055 + 0.2);
+                tone.connect(gain);
+                gain.connect(context.destination);
+                tone.start(now + index * 0.055);
+                tone.stop(now + index * 0.055 + 0.22);
+            });
+        }
         
         function autoChooseWinner() {
             const colorCounts = countLetterColors();
@@ -2397,6 +2772,7 @@
 
             if (namedScores.length === 0) {
                 gameEnded = true;
+                resetBoostState();
                 enableStartButton();
                 renderPlayerList();
                 return;
@@ -2407,6 +2783,7 @@
 
             if (leaders.length > 1) {
                 gameEnded = true;
+                resetBoostState();
                 startTieBattle(leaders, highScore);
                 return;
             }
@@ -2418,6 +2795,7 @@
             
             showWinner(winnerName, `${letterCount} letter${letterCount !== 1 ? 's' : ''} conquered`, winningColor);
             gameEnded = true;
+            resetBoostState();
             enableStartButton();
         }
 
@@ -2684,6 +3062,7 @@
             const overlay = document.getElementById('winnerOverlay');
             const winnerName = document.getElementById('winnerName');
             const winnerScore = document.getElementById('winnerScore');
+            const wasVisible = overlay.classList.contains('visible');
 
             winnerName.textContent = name;
             winnerScore.textContent = scoreText;
@@ -2691,6 +3070,7 @@
             overlay.classList.add('visible');
             overlay.setAttribute('aria-hidden', 'false');
             launchWinnerConfetti();
+            if (!wasVisible) incrementTotalPlays();
         }
         
         function hideWinner() {
