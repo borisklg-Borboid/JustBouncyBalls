@@ -40,6 +40,68 @@
             display: flex;
             gap: 18px;
         }
+
+        .boost-toggle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            min-width: 42px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .boost-toggle input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+        }
+
+        .boost-switch {
+            position: relative;
+            width: 32px;
+            height: 18px;
+            box-sizing: border-box;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.1);
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .boost-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #aaa;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .boost-toggle input:checked + .boost-switch {
+            border-color: rgba(0, 255, 157, 0.7);
+            background: rgba(0, 255, 157, 0.17);
+        }
+
+        .boost-toggle input:checked + .boost-switch::after {
+            transform: translateX(14px);
+            background: #00ff9d;
+        }
+
+        .boost-toggle input:focus-visible + .boost-switch {
+            outline: 2px solid white;
+            outline-offset: 3px;
+        }
+
+        .boost-toggle input:disabled + .boost-switch {
+            opacity: 0.55;
+        }
         
         #nameInputArea {
             position: absolute;
@@ -976,6 +1038,11 @@
     <div id="controls">
         <button id="startBtn" class="btn ball-btn">Start</button>
         <button id="resetBtn" class="btn ball-btn">Reset</button>
+        <label class="boost-toggle" title="Choose Boost mode before starting a round">
+            <input id="boostToggle" type="checkbox" checked aria-label="Enable Boost mode">
+            <span class="boost-switch" aria-hidden="true"></span>
+            <span>Boost</span>
+        </label>
     </div>
     
     <div id="nameInputArea">
@@ -1037,6 +1104,7 @@
         const ctx = canvas.getContext('2d');
         const startBtn = document.getElementById('startBtn');
         const resetBtn = document.getElementById('resetBtn');
+        const boostToggle = document.getElementById('boostToggle');
         const addPlayerBtn = document.getElementById('addPlayerBtn');
         const removePlayerBtn = document.getElementById('removePlayerBtn');
         const winnerResetBtn = document.getElementById('winnerResetBtn');
@@ -1861,6 +1929,7 @@
             startBtn.style.cursor = 'not-allowed';
             // Reset stays available so a running round can be aborted
             resetBtn.disabled = false;
+            boostToggle.disabled = true;
             renderPlayerList();
             
             // Start with one ball for every visible player.
@@ -2419,7 +2488,7 @@
         }
 
         function checkBoostMusicCue() {
-            if (!gameStarted || gameEnded || boostMusicActive) return;
+            if (!gameStarted || gameEnded || !boostToggle.checked || boostMusicActive) return;
             if (balls.length >= Math.floor(getMaxBalls() * BOOST_MUSIC_START_PROGRESS)) startBoostMusic();
         }
 
@@ -2429,11 +2498,13 @@
             if (balls.length >= getMaxBalls()) {
                 finaleBlastTriggered = true;
                 triggerFinaleBlast();
-                boostStartTimer = setTimeout(() => {
-                    boostStartTimer = null;
-                    if (!gameStarted || gameEnded || !finaleBlastTriggered) return;
-                    startBoostSequence();
-                }, BOOST_CHALLENGE_AFTER_BLAST_MS);
+                if (boostToggle.checked) {
+                    boostStartTimer = setTimeout(() => {
+                        boostStartTimer = null;
+                        if (!gameStarted || gameEnded || !finaleBlastTriggered) return;
+                        startBoostSequence();
+                    }, BOOST_CHALLENGE_AFTER_BLAST_MS);
+                }
             }
         }
 
@@ -2537,6 +2608,7 @@
 
             playFinaleBounceCascade(context, now);
             blastFinaleBalls();
+            if (!boostToggle.checked) restoreBackgroundMusic(450);
         }
 
         function triggerFinaleBlast() {
@@ -3047,6 +3119,7 @@
             startBtn.style.opacity = '1';
             startBtn.style.cursor = 'pointer';
             resetBtn.disabled = false;
+            boostToggle.disabled = false;
         }
         
         // In a narrow (portrait) screen the settled pile is taller than 10 ball heights,
